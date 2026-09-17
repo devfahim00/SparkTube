@@ -679,6 +679,9 @@ object PlaybackCenter {
     private fun audioUri(stream: AudioStream): Uri = Uri.parse(stream.content)
     private fun audioUri(stream: VideoStream): Uri = Uri.parse(stream.content)
 
+    private fun progressiveSource(item: MediaItem): MediaSource =
+        ProgressiveMediaSource.Factory(dataSourceFactory).createMediaSource(item)
+
     // ----- Music playlist -----
 
     /**

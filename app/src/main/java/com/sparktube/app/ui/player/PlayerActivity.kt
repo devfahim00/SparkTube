@@ -175,7 +175,7 @@ class PlayerActivity : AppCompatActivity() {
      * the player's built-in controller.
      */
     private fun hookGearMenu() {
-        val gear = binding.playerView.findViewById<View>(R.id.exo_settings)
+        val gear = binding.playerView.findViewById<View>(Media3R.id.exo_settings)
         gear?.setOnClickListener { showVideoSettingsSheet() }
     }
 
