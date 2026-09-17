@@ -2,12 +2,16 @@ package com.sparktube.app.ui.music
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.widget.SeekBar
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import coil.load
 import com.sparktube.app.R
@@ -59,6 +63,10 @@ class NowPlayingActivity : AppCompatActivity() {
             finish()
             return
         }
+
+        // Background music needs the notification: ask again here if the
+        // user missed / denied the prompt shown on first launch.
+        requestNotificationPermissionIfNeeded()
 
         binding.backButton.setOnClickListener { finish() }
         binding.playPauseButton.setOnClickListener { PlaybackCenter.togglePlayPause() }
@@ -145,6 +153,29 @@ class NowPlayingActivity : AppCompatActivity() {
         binding.duration.text = formatTime(duration)
     }
 
+    /** Android 13+: without this the media notification (and its controls) stay hidden. */
+    private fun requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),
+                REQ_NOTIFICATIONS
+            )
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        // Optional: playback works either way.
+    }
+
     private fun restartRadio() {
         val entry = PlaybackCenter.currentEntry ?: return
         PlaybackCenter.playMusic(entry, radio = true)
@@ -173,6 +204,8 @@ class NowPlayingActivity : AppCompatActivity() {
     }
 
     companion object {
+        private const val REQ_NOTIFICATIONS = 4712
+
         fun start(context: Context) {
             context.startActivity(Intent(context, NowPlayingActivity::class.java))
         }

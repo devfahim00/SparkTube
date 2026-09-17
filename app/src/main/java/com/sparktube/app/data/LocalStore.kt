@@ -45,9 +45,11 @@ object LocalStore {
     private const val KEY_FAVORITES = "favorites_json"
     private const val KEY_SUBSCRIPTIONS = "subscriptions_json"
     private const val KEY_DOWNLOADS = "downloads_json"
+    private const val KEY_SEARCHES = "searches_json"
     private const val MAX_HISTORY = 200
     private const val MAX_FAVORITES = 500
     private const val MAX_SUBSCRIPTIONS = 200
+    private const val MAX_SEARCHES = 20
 
     private fun prefs(context: Context) =
         context.applicationContext.getSharedPreferences("sparktube_local", Context.MODE_PRIVATE)
@@ -77,6 +79,36 @@ object LocalStore {
 
     fun clearHistory(context: Context) {
         prefs(context).edit().remove(KEY_HISTORY).apply()
+    }
+
+    // ----- Search history -----
+
+    /** Recent search queries, newest first (case preserved, deduplicated). */
+    fun searches(context: Context): List<String> =
+        readSearches(prefs(context), KEY_SEARCHES)
+
+    fun addSearch(context: Context, query: String) {
+        val q = query.trim()
+        if (q.isEmpty()) return
+        val ctx = context.applicationContext
+        val list = readSearches(ctx, KEY_SEARCHES).toMutableList()
+        list.removeAll { it.equals(q, ignoreCase = true) }
+        list.add(0, q)
+        while (list.size > MAX_SEARCHES) {
+            list.removeAt(list.size - 1)
+        }
+        prefs(ctx).edit().putString(KEY_SEARCHES, JSONArray(list).toString()).apply()
+    }
+
+    fun removeSearch(context: Context, query: String) {
+        val ctx = context.applicationContext
+        val list = readSearches(ctx, KEY_SEARCHES).toMutableList()
+        list.removeAll { it == query }
+        prefs(ctx).edit().putString(KEY_SEARCHES, JSONArray(list).toString()).apply()
+    }
+
+    fun clearSearches(context: Context) {
+        prefs(context).edit().remove(KEY_SEARCHES).apply()
     }
 
     // ----- Favorites -----
@@ -231,6 +263,16 @@ object LocalStore {
             )
         }
         sp.edit().putString(key, arr.toString()).apply()
+    }
+
+    private fun readSearches(sp: android.content.SharedPreferences, key: String): List<String> {
+        val raw = sp.getString(key, null) ?: return emptyList()
+        return try {
+            val arr = JSONArray(raw)
+            (0 until arr.length()).map { idx -> arr.optString(idx) }
+        } catch (e: Exception) {
+            emptyList()
+        }
     }
 
     // ----- Download JSON helpers -----

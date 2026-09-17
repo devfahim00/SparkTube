@@ -12,6 +12,7 @@
     android:paddingBottom="12dp">
 
     <ImageView
+        android:id="@+id/rowIcon"
         android:layout_width="20dp"
         android:layout_height="20dp"
         android:importantForAccessibility="no"
@@ -28,4 +29,16 @@
         android:maxLines="1"
         android:textColor="@color/on_surface"
         android:textSize="15sp" />
+
+    <ImageView
+        android:id="@+id/deleteButton"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:layout_marginStart="8dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:importantForAccessibility="no"
+        android:padding="8dp"
+        android:src="@drawable/ic_close"
+        android:visibility="gone"
+        app:tint="@color/on_surface_variant" />
 </LinearLayout>

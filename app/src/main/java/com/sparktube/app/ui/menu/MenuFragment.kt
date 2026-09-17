@@ -13,6 +13,7 @@ import com.sparktube.app.BuildConfig
 import com.sparktube.app.R
 import com.sparktube.app.data.Countries
 import com.sparktube.app.data.LocalStore
+import com.sparktube.app.data.RecommendEngine
 import com.sparktube.app.data.YtRepository
 import com.sparktube.app.databinding.FragmentMenuBinding
 import com.sparktube.app.util.AppPrefs
@@ -38,6 +39,7 @@ class MenuFragment : Fragment() {
 
         binding.rowCountry.setOnClickListener { showCountryPicker() }
         binding.rowClearHistory.setOnClickListener { confirmClearHistory() }
+        binding.rowClearSearchHistory.setOnClickListener { confirmClearSearchHistory() }
         binding.rowClearFavorites.setOnClickListener { confirmClearFavorites() }
         binding.rowAbout.setOnClickListener { showAbout() }
 
@@ -80,7 +82,21 @@ class MenuFragment : Fragment() {
             .setMessage(R.string.clear_history_confirm)
             .setPositiveButton(android.R.string.ok) { _, _ ->
                 LocalStore.clearHistory(requireContext())
+                // The recommendation profile must forget the same signals.
+                RecommendEngine.clearPlays(requireContext())
                 Toast.makeText(requireContext(), R.string.history_cleared, Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun confirmClearSearchHistory() {
+        AlertDialog.Builder(requireContext())
+            .setTitle(R.string.clear_search_history)
+            .setMessage(R.string.clear_search_history_confirm)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                RecommendEngine.clearSearches(requireContext())
+                Toast.makeText(requireContext(), R.string.search_history_cleared, Toast.LENGTH_SHORT).show()
             }
             .setNegativeButton(android.R.string.cancel, null)
             .show()

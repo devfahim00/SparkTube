@@ -13,11 +13,14 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.sparktube.app.R
+import com.sparktube.app.data.LocalStore
+import com.sparktube.app.data.RecommendEngine
 import com.sparktube.app.data.YtRepository
 import com.sparktube.app.databinding.ActivitySearchBinding
 import com.sparktube.app.playback.PlaybackCenter
 import com.sparktube.app.ui.common.MusicRowAdapter
 import com.sparktube.app.ui.common.SuggestionAdapter
+import com.sparktube.app.ui.common.SuggestionRow
 import com.sparktube.app.ui.common.VideoAdapter
 import com.sparktube.app.ui.common.VideoUiModel
 import com.sparktube.app.ui.common.toQueueEntry
@@ -49,6 +52,7 @@ class SearchActivity : AppCompatActivity() {
     private var query: String = ""
     private var isLoading = false
     private var suggestionJob: Job? = null
+    private var lastSuggestions: List<String> = emptyList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -68,11 +72,22 @@ class SearchActivity : AppCompatActivity() {
         musicAdapter = MusicRowAdapter(onClick = { model ->
             playMusic(model)
         })
-        suggestionAdapter = SuggestionAdapter(onClick = { suggestion ->
-            binding.searchInput.setText(suggestion)
-            binding.searchInput.setSelection(suggestion.length)
-            doSearch()
-        })
+        suggestionAdapter = SuggestionAdapter(
+            onClick = { suggestion ->
+                binding.searchInput.setText(suggestion)
+                binding.searchInput.setSelection(suggestion.length)
+                doSearch()
+            },
+            onDelete = { entry ->
+                LocalStore.removeSearch(this, entry)
+                val text = binding.searchInput.text?.toString().orEmpty()
+                if (text.length < 2) {
+                    showHistoryRows()
+                } else {
+                    showMergedRows(text, lastSuggestions)
+                }
+            }
+        )
 
         binding.list.layoutManager = LinearLayoutManager(this)
         binding.list.adapter = if (musicMode) musicAdapter else videoAdapter
@@ -93,7 +108,7 @@ class SearchActivity : AppCompatActivity() {
         binding.backButton.setOnClickListener { finish() }
         binding.clearButton.setOnClickListener {
             binding.searchInput.setText("")
-            showSuggestions(emptyList())
+            showHistoryRows()
             binding.searchInput.requestFocus()
         }
 
@@ -112,13 +127,14 @@ class SearchActivity : AppCompatActivity() {
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                 val text = s?.toString().orEmpty()
                 binding.clearButton.isVisible = text.isNotEmpty()
-                if (text.length < 2) {
-                    suggestionJob?.cancel()
-                    showSuggestions(emptyList())
-                    return
-                }
                 if (text == query) {
                     // The input matches what is already searched: show results.
+                    return
+                }
+                if (text.length < 2) {
+                    suggestionJob?.cancel()
+                    lastSuggestions = emptyList()
+                    showHistoryRows()
                     return
                 }
                 queueSuggestions(text)
@@ -129,6 +145,10 @@ class SearchActivity : AppCompatActivity() {
 
         binding.searchInput.requestFocus()
         showKeyboard()
+        // Fresh open with an empty input: surface the recent searches.
+        if (prefillQuery.isNullOrBlank()) {
+            showHistoryRows()
+        }
 
         prefillQuery?.takeIf { it.isNotBlank() }?.let { prefill ->
             binding.searchInput.setText(prefill)
@@ -152,7 +172,8 @@ class SearchActivity : AppCompatActivity() {
             try {
                 val suggestions = YtRepository.suggestions(text)
                 if (binding.searchInput.text?.toString() == text) {
-                    showSuggestions(suggestions)
+                    lastSuggestions = suggestions
+                    showMergedRows(text, suggestions)
                 }
             } catch (e: Exception) {
                 // Suggestions are best-effort only.
@@ -160,14 +181,38 @@ class SearchActivity : AppCompatActivity() {
         }
     }
 
-    private fun showSuggestions(suggestions: List<String>) {
+    /** Empty input: show the saved search history (newest first). */
+    private fun showHistoryRows() {
+        val searches = LocalStore.searches(this).take(15)
+        if (searches.isEmpty()) {
+            suggestionAdapter.submitList(emptyList())
+            binding.suggestionList.isVisible = false
+            return
+        }
+        suggestionAdapter.submitList(searches.map { SuggestionRow(it, isHistory = true) })
+        binding.suggestionList.isVisible = true
+    }
+
+    /** Typing: matching saved searches on top, remote suggestions below. */
+    private fun showMergedRows(text: String, suggestions: List<String>) {
+        val lower = text.lowercase()
+        val historyMatches = LocalStore.searches(this)
+            .filter { it.lowercase().contains(lower) }
+            .take(5)
+        val historyKeys = historyMatches.map { it.lowercase() }.toSet()
+        val rows = historyMatches.map { SuggestionRow(it, isHistory = true) } +
+            suggestions
+                .filter { it.lowercase() !in historyKeys }
+                .take(10)
+                .map { SuggestionRow(it, isHistory = false) }
+
         val showResults = items.isNotEmpty() || binding.loading.isVisible || binding.errorView.isVisible
-        if (suggestions.isEmpty() || (showResults && suggestions.firstOrNull() == query)) {
+        if (rows.isEmpty() || (showResults && rows.firstOrNull()?.text == query)) {
             binding.suggestionList.isVisible = false
         } else {
             binding.suggestionList.isVisible = true
         }
-        suggestionAdapter.submitList(suggestions)
+        suggestionAdapter.submitList(rows)
     }
 
     private fun doSearch() {
@@ -177,6 +222,7 @@ class SearchActivity : AppCompatActivity() {
         query = text
         page = null
         items.clear()
+        RecommendEngine.logSearch(this, text)
         binding.suggestionList.isVisible = false
         if (musicMode) musicAdapter.submitList(emptyList()) else videoAdapter.submitList(emptyList())
         binding.loading.isVisible = true

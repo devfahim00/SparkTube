@@ -41,6 +41,9 @@
     <string name="clear_history">Clear watch history</string>
     <string name="clear_history_confirm">Remove all watched videos from history?</string>
     <string name="history_cleared">Watch history cleared</string>
+    <string name="clear_search_history">Clear search history</string>
+    <string name="clear_search_history_confirm">Remove all recent searches?</string>
+    <string name="search_history_cleared">Search history cleared</string>
     <string name="clear_favorites">Clear favorites</string>
     <string name="clear_favorites_confirm">Remove all favorite videos?</string>
     <string name="favorites_cleared">Favorites cleared</string>
@@ -115,6 +118,10 @@
     <string name="settings_quality_section">Quality</string>
     <string name="settings_speed_section">Playback speed</string>
     <string name="settings_audio_track_section">Audio track</string>
+    <string name="quality_auto_short">Auto</string>
+    <string name="speed_normal">Normal</string>
+    <string name="audio_track_original">original</string>
+    <string name="audio_track_switched_to">Audio track: %1$s</string>
 
     <!-- Common -->
     <string name="ok">OK</string>

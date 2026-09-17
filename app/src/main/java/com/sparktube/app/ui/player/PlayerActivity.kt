@@ -31,6 +31,7 @@ import com.sparktube.app.data.YtRepository
 import com.sparktube.app.databinding.ActivityPlayerBinding
 import com.sparktube.app.playback.PlaybackCenter
 import com.sparktube.app.playback.QueueEntry
+import com.sparktube.app.playback.StreamCatalog
 import com.sparktube.app.playback.effectiveHeight
 import com.sparktube.app.ui.channel.ChannelActivity
 import com.sparktube.app.ui.common.VideoAdapter
@@ -86,6 +87,10 @@ class PlayerActivity : AppCompatActivity() {
         override fun onFavoriteChanged(url: String, isFavorite: Boolean) = updateFavoriteUi()
 
         override fun onAudioOnlyChanged(audioOnly: Boolean) = bindCatalog()
+
+        override fun onNotice(message: String) {
+            Toast.makeText(this@PlayerActivity, message, Toast.LENGTH_SHORT).show()
+        }
     }
 
     private var loadedUrl: String? = null
@@ -289,6 +294,9 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun applyOrientation(config: Configuration) {
         val landscape = config.orientation == Configuration.ORIENTATION_LANDSCAPE
+        binding.fullscreenButton.setImageResource(
+            if (landscape) R.drawable.ic_fullscreen_exit else R.drawable.ic_fullscreen
+        )
         if (landscape) {
             binding.scrollArea.isVisible = false
             binding.playerView.updateLayoutParams<ConstraintLayout.LayoutParams> {
@@ -459,16 +467,6 @@ class PlayerActivity : AppCompatActivity() {
         setTypeface(null, Typeface.BOLD)
     }
 
-    private fun sheetSectionTitle(text: String): TextView = TextView(this).apply {
-        this.text = text
-        textSize = 13f
-        setTextColor(getColor(R.color.on_surface_variant))
-        setTypeface(null, Typeface.BOLD)
-        layoutParams = LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
-        ).also { it.topMargin = dp(14) }
-    }
-
     private fun sheetRow(label: String, selected: Boolean, onClick: () -> Unit): TextView =
         TextView(this).apply {
             text = label
@@ -489,8 +487,67 @@ class PlayerActivity : AppCompatActivity() {
         }
 
     /**
-     * The gear menu: quality + playback speed + dubbing audio track in one
-     * scrollable sheet.
+     * A category row for the gear menu: title on the left, the currently
+     * selected value on the right and a chevron — like the official
+     * YouTube player's settings menu.
+     */
+    private fun sheetMenuRow(mainLabel: String, valueLabel: String, onClick: () -> Unit): LinearLayout =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            setPadding(dp(14), dp(14), dp(14), dp(14))
+            background = GradientDrawable().apply {
+                cornerRadius = dp(12).toFloat()
+                setColor(getColor(R.color.surface_elevated))
+            }
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            ).also { it.topMargin = dp(10) }
+            setOnClickListener { onClick() }
+
+            addView(
+                TextView(this@PlayerActivity).apply {
+                    text = mainLabel
+                    textSize = 15f
+                    setTextColor(getColor(R.color.on_surface))
+                    setTypeface(null, Typeface.BOLD)
+                    layoutParams = LinearLayout.LayoutParams(
+                        0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f
+                    )
+                }
+            )
+            addView(
+                TextView(this@PlayerActivity).apply {
+                    text = valueLabel
+                    textSize = 13f
+                    maxLines = 1
+                    ellipsize = android.text.TextUtils.TruncateAt.END
+                    setTextColor(getColor(R.color.on_surface_variant))
+                    layoutParams = LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+                    ).also { it.marginEnd = dp(6) }
+                }
+            )
+            addView(
+                android.widget.ImageView(this@PlayerActivity).apply {
+                    setImageResource(R.drawable.ic_chevron_right)
+                    setColorFilter(getColor(R.color.on_surface_variant))
+                    importantForAccessibility = android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                    layoutParams = LinearLayout.LayoutParams(dp(20), dp(20))
+                }
+            )
+        }
+
+    private fun showSheet(sheet: BottomSheetDialog, root: LinearLayout, peekDp: Int = 420) {
+        val scroll = android.widget.ScrollView(this).apply { addView(root) }
+        sheet.setContentView(scroll)
+        sheet.behavior.peekHeight = dp(peekDp)
+        sheet.show()
+    }
+
+    /**
+     * The gear menu: categories first (quality, playback speed, audio
+     * track) — picking one opens its own list, like the official app.
      */
     private fun showVideoSettingsSheet() {
         val catalog = PlaybackCenter.catalog
@@ -503,8 +560,63 @@ class PlayerActivity : AppCompatActivity() {
         val root = sheetRoot()
         root.addView(sheetTitle(getString(R.string.video_settings)))
 
-        // --- Quality ---
-        root.addView(sheetSectionTitle(getString(R.string.settings_quality_section)))
+        root.addView(
+            sheetMenuRow(getString(R.string.settings_quality_section), qualitySummary(catalog)) {
+                sheet.dismiss()
+                showQualitySheet()
+            }
+        )
+        root.addView(
+            sheetMenuRow(getString(R.string.settings_speed_section), speedSummary()) {
+                sheet.dismiss()
+                showSpeedSheet()
+            }
+        )
+        if (catalog.audioTracks.size > 1) {
+            root.addView(
+                sheetMenuRow(getString(R.string.settings_audio_track_section), audioTrackSummary(catalog)) {
+                    sheet.dismiss()
+                    showAudioTrackSheet()
+                }
+            )
+        }
+
+        showSheet(sheet, root, peekDp = 320)
+    }
+
+    private fun qualitySummary(catalog: StreamCatalog): String {
+        val current = PlaybackCenter.selectedQualityHeight ?: return getString(R.string.quality_auto_short)
+        if (current == -1) return getString(R.string.quality_audio_only)
+        val fps = catalog.videoOnly.firstOrNull { it.effectiveHeight() == current }?.fps
+            ?: catalog.muxed.firstOrNull { it.effectiveHeight() == current }?.fps ?: 0
+        return if (fps > 30) "${current}p $fps" else "${current}p"
+    }
+
+    private fun speedSummary(): String =
+        if (PlaybackCenter.playbackSpeed == 1.0f) {
+            getString(R.string.speed_normal)
+        } else {
+            "${PlaybackCenter.playbackSpeed}x"
+        }
+
+    private fun audioTrackSummary(catalog: StreamCatalog): String {
+        val selected = PlaybackCenter.selectedAudioTrackId
+        val track = catalog.audioTracks.firstOrNull { it.id == selected }
+            ?: catalog.audioTracks.firstOrNull()
+            ?: return ""
+        return track.label + if (track.isOriginal) {
+            " (${getString(R.string.audio_track_original)})"
+        } else {
+            ""
+        }
+    }
+
+    private fun showQualitySheet() {
+        val catalog = PlaybackCenter.catalog ?: return
+        val sheet = BottomSheetDialog(this)
+        val root = sheetRoot()
+        root.addView(sheetTitle(getString(R.string.settings_quality_section)))
+
         val currentHeight = PlaybackCenter.selectedQualityHeight
         root.addView(
             sheetRow(getString(R.string.quality_auto), currentHeight == null) {
@@ -512,21 +624,17 @@ class PlayerActivity : AppCompatActivity() {
                 sheet.dismiss()
             }
         )
-        catalog.videoOnly.forEach { v ->
+        val useMuxed = catalog.videoOnly.isEmpty()
+        val candidates = if (useMuxed) catalog.muxed else catalog.videoOnly
+        candidates.forEach { v ->
             val h = v.effectiveHeight()
-            root.addView(sheetRow("${h}p${if (v.fps > 30) " ${v.fps}fps" else ""}", currentHeight == h) {
+            val label = "${h}p" +
+                (if (v.fps > 30) " ${v.fps}fps" else "") +
+                (if (useMuxed) " (muxed)" else "")
+            root.addView(sheetRow(label, currentHeight == h) {
                 PlaybackCenter.setVideoQuality(h)
                 sheet.dismiss()
             })
-        }
-        if (catalog.videoOnly.isEmpty()) {
-            catalog.muxed.forEach { v ->
-                val h = v.effectiveHeight()
-                root.addView(sheetRow("${h}p (muxed)", currentHeight == h) {
-                    PlaybackCenter.setVideoQuality(h)
-                    sheet.dismiss()
-                })
-            }
         }
         root.addView(
             sheetRow(getString(R.string.quality_audio_only), currentHeight == -1) {
@@ -534,41 +642,56 @@ class PlayerActivity : AppCompatActivity() {
                 sheet.dismiss()
             }
         )
+        showSheet(sheet, root)
+    }
 
-        // --- Playback speed ---
-        root.addView(sheetSectionTitle(getString(R.string.settings_speed_section)))
+    private fun showSpeedSheet() {
+        val sheet = BottomSheetDialog(this)
+        val root = sheetRoot()
+        root.addView(sheetTitle(getString(R.string.settings_speed_section)))
+
         val speeds = listOf(0.25f, 0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f)
         val currentSpeed = PlaybackCenter.playbackSpeed
         speeds.forEach { s ->
             root.addView(
-                sheetRow(if (s == 1.0f) "Normal" else "${s}x", s == currentSpeed) {
+                sheetRow(
+                    if (s == 1.0f) getString(R.string.speed_normal) else "${s}x",
+                    s == currentSpeed
+                ) {
                     PlaybackCenter.setSpeed(s)
                     sheet.dismiss()
                 }
             )
         }
+        showSheet(sheet, root)
+    }
 
-        // --- Audio track (only when more than one dubbing language exists) ---
-        if (catalog.audioTracks.size > 1) {
-            root.addView(sheetSectionTitle(getString(R.string.settings_audio_track_section)))
-            val currentTrack = PlaybackCenter.selectedAudioTrackId
-            catalog.audioTracks.forEach { t ->
-                root.addView(
-                    sheetRow(
-                        t.label + if (t.isOriginal) " (original)" else "",
-                        currentTrack == t.id
-                    ) {
-                        PlaybackCenter.setAudioTrack(t.id)
-                        sheet.dismiss()
-                    }
-                )
+    private fun showAudioTrackSheet() {
+        val catalog = PlaybackCenter.catalog ?: return
+        val sheet = BottomSheetDialog(this)
+        val root = sheetRoot()
+        root.addView(sheetTitle(getString(R.string.settings_audio_track_section)))
+
+        val currentTrack = PlaybackCenter.selectedAudioTrackId
+        catalog.audioTracks.forEach { t ->
+            val label = t.label + if (t.isOriginal) {
+                " (${getString(R.string.audio_track_original)})"
+            } else {
+                ""
             }
+            root.addView(
+                sheetRow(label, currentTrack == t.id) {
+                    PlaybackCenter.setAudioTrack(t.id)
+                    Toast.makeText(
+                        this,
+                        getString(R.string.audio_track_switched_to, label),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    sheet.dismiss()
+                }
+            )
         }
-
-        val scroll = android.widget.ScrollView(this).apply { addView(root) }
-        sheet.setContentView(scroll)
-        sheet.behavior.peekHeight = dp(420)
-        sheet.show()
+        showSheet(sheet, root)
     }
 
     private fun showDownloadSheet() {

@@ -11,6 +11,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.sparktube.app.R
 import com.sparktube.app.data.Countries
+import com.sparktube.app.data.RecommendEngine
 import com.sparktube.app.data.YtRepository
 import com.sparktube.app.databinding.FragmentHomeBinding
 import com.sparktube.app.ui.common.toUiModel
@@ -19,7 +20,9 @@ import com.sparktube.app.ui.player.PlayerActivity
 import com.sparktube.app.ui.search.SearchActivity
 import com.sparktube.app.util.AppPrefs
 import com.sparktube.app.util.Formatters
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class HomeFragment : Fragment() {
 
@@ -28,6 +31,7 @@ class HomeFragment : Fragment() {
 
     private lateinit var adapter: VideoAdapter
     private var loadedCountry: String? = null
+    private var loadedGeneration: Int = -1
     private var loadJob: kotlinx.coroutines.Job? = null
 
     override fun onCreateView(
@@ -76,7 +80,8 @@ class HomeFragment : Fragment() {
 
     private fun maybeReload() {
         val current = AppPrefs.countryOrDefault
-        if (current != loadedCountry) {
+        val generation = RecommendEngine.generation(requireContext())
+        if (current != loadedCountry || generation != loadedGeneration) {
             load()
         }
     }
@@ -84,6 +89,7 @@ class HomeFragment : Fragment() {
     private fun load() {
         val country = AppPrefs.countryOrDefault
         loadedCountry = country
+        loadedGeneration = RecommendEngine.generation(requireContext())
 
         loadJob?.cancel()
         loadJob = viewLifecycleOwner.lifecycleScope.launch {
@@ -91,7 +97,10 @@ class HomeFragment : Fragment() {
             binding.errorView.isVisible = false
             binding.emptyView.isVisible = false
             try {
-                val items = YtRepository.trending(country)
+                val snap = withContext(Dispatchers.IO) {
+                    RecommendEngine.snapshot(requireContext())
+                }
+                val items = YtRepository.personalizedFeed(country, snap)
                 adapter.submitList(items.map { it.toUiModel() })
                 binding.emptyView.isVisible = items.isEmpty()
                 if (items.isEmpty()) {

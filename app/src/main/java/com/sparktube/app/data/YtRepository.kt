@@ -2,7 +2,11 @@ package com.sparktube.app.data
 
 import com.sparktube.app.util.AppPrefs
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.schabi.newpipe.extractor.InfoItem
 import org.schabi.newpipe.extractor.NewPipe
 import org.schabi.newpipe.extractor.Page
@@ -91,6 +95,81 @@ object YtRepository {
             }
             blended
         }
+
+    /** Max "because you watched" picks injected at the top of the feed. */
+    private const val MAX_RELATED_PICKS = 6
+
+    /** Max items per channel in the re-ranked feed (variety guard). */
+    private const val MAX_PER_CHANNEL = 3
+
+    /** Budget for the parallel related-list fetches, so the feed stays snappy. */
+    private const val RELATED_FETCH_TIMEOUT_MS = 10_000L
+
+    /**
+     * Personalized home feed built on top of the trending blend:
+     *  1. candidates from the related lists of recently watched videos
+     *     ("because you watched …"), fetched in parallel with a time budget;
+     *  2. trending re-ranked against the user's interest profile with a
+     *     per-channel cap and stable order for zero-score items.
+     *
+     * Fresh installs (no signals) fall back to the plain trending blend.
+     */
+    suspend fun personalizedFeed(
+        countryCode: String,
+        snap: RecommendEngine.Snapshot
+    ): List<StreamInfoItem> = withContext(Dispatchers.IO) {
+        val trending = trending(countryCode)
+        if (!snap.hasSignal) {
+            return@withContext trending
+        }
+
+        // 1. Related-of-recent candidates, deduped against trending + watched.
+        val seen = trending.map { it.url }.toHashSet()
+        val watched = snap.recentWatchedUrls.toHashSet()
+        val candidates = mutableListOf<StreamInfoItem>()
+        if (snap.relatedSources.isNotEmpty()) {
+            withTimeoutOrNull(RELATED_FETCH_TIMEOUT_MS) {
+                coroutineScope {
+                    snap.relatedSources.map { sourceUrl ->
+                        async { runCatching { related(sourceUrl) }.getOrDefault(emptyList()) }
+                    }.awaitAll()
+                }
+            }?.forEach { list ->
+                list.forEach { item ->
+                    if (item.url !in seen && item.url !in watched) {
+                        seen.add(item.url)
+                        candidates.add(item)
+                    }
+                }
+            }
+        }
+
+        // Best related picks first — the strongest "for you" zone.
+        val topRelated = candidates
+            .map { it to RecommendEngine.score(it, snap) }
+            .sortedByDescending { (_, score) -> score }
+            .take(MAX_RELATED_PICKS)
+            .map { (item, _) -> item }
+
+        // 2. Trending re-ranked: stable sort, so zero-score items keep the
+        //    kiosk blend order while profile matches bubble to the top.
+        val perChannel = HashMap<String, Int>()
+        val reRanked = trending
+            .sortedByDescending { RecommendEngine.score(it, snap) }
+            .filter { item ->
+                val key = item.uploaderName?.trim()?.lowercase().orEmpty()
+                    .ifEmpty { item.url }
+                val count = perChannel.getOrDefault(key, 0)
+                if (count >= MAX_PER_CHANNEL) {
+                    false
+                } else {
+                    perChannel[key] = count + 1
+                    true
+                }
+            }
+
+        topRelated + reRanked
+    }
 
     /**
      * Trending music: uses YouTube Charts when the selected country supports
