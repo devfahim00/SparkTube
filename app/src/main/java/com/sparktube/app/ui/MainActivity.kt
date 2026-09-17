@@ -1,12 +1,16 @@
 package com.sparktube.app.ui
 
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import com.sparktube.app.R
@@ -57,6 +61,8 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        requestNotificationPermissionIfNeeded()
+
         binding.navHome.setOnClickListener { select(R.id.navHome) }
         binding.navMusic.setOnClickListener { select(R.id.navMusic) }
         binding.navLibrary.setOnClickListener { select(R.id.navLibrary) }
@@ -100,6 +106,29 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         PlaybackCenter.removeListener(playbackListener)
+    }
+
+    /** Android 13+: media notification (background playback controls) needs this. */
+    private fun requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),
+                REQ_NOTIFICATIONS
+            )
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        // Notification permission is optional: playback works either way.
     }
 
     private fun bindMiniPlayer() {
@@ -189,6 +218,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val STATE_SELECTED = "selected_nav"
+        private const val REQ_NOTIFICATIONS = 4711
         private val NAV_IDS = intArrayOf(R.id.navHome, R.id.navMusic, R.id.navLibrary, R.id.navMenu)
         private fun tagOf(id: Int) = "frag_$id"
     }
