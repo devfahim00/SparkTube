@@ -801,6 +801,10 @@ object PlaybackCenter {
 
     private fun musicMediaItem(entry: QueueEntry): MediaItem {
         val key = "music-${musicItemId.incrementAndGet()}"
+        // Bounded like musicUriCache: entries now live for the whole session
+        // (see resolveMusicUri) instead of being removed after first use, so
+        // a very long continuous radio session must not leak indefinitely.
+        if (pendingMusic.size > 128) pendingMusic.clear()
         pendingMusic[key] = entry
         return MediaItem.Builder()
             .setUri("sparktube://queue/$key")
@@ -814,26 +818,28 @@ object PlaybackCenter {
             .build()
     }
 
-    /** Blocking stream resolution for the playlist (runs on the loading thread). */
+    /**
+     * Blocking stream resolution for the playlist (runs on the loading thread).
+     * ExoPlayer's ResolvingDataSource can call this more than once for the
+     * same media item — a mid-buffer retry, a re-open after a seek, etc. —
+     * so the pendingMusic entry must stay around for the life of the
+     * playlist item, not just the first successful resolution. Removing it
+     * eagerly made every repeat call throw "vanished", which the player
+     * treated as a hard playback error and skipped to the next track (which
+     * then hit the same problem a few seconds later).
+     */
     private fun resolveMusicUri(key: String): Uri {
         val entry = pendingMusic[key]
             ?: throw IOException("Playlist item vanished: $key")
-        // Fast path: the URL was already resolved by playMusic or prefetch.
-        musicUriCache[entry.url]?.let { cached ->
-            pendingMusic.remove(key)
-            return cached
-        }
+        // Fast path: already resolved (also covers repeat calls for the
+        // same item — retries, buffering re-opens, etc).
+        musicUriCache[entry.url]?.let { return it }
         val info = runBlocking { YtRepository.streamInfo(entry.url) }
         if (LiveFilter.isLive(info)) {
-            pendingMusic.remove(key)
             throw IOException("LIVE_CONTENT")
         }
         val audio = StreamCatalog(info).audioTracks.firstOrNull()?.best
-        if (audio == null) {
-            pendingMusic.remove(key)
-            throw IOException("No audio stream found")
-        }
-        pendingMusic.remove(key)
+            ?: throw IOException("No audio stream found")
         return cacheMusicUri(entry.url, audio.content)
     }
 
