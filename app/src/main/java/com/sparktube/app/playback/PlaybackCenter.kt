@@ -1060,7 +1060,9 @@ object PlaybackCenter {
     private fun forceInitialRangeHeader(spec: DataSpec): DataSpec {
         val scheme = spec.uri.scheme
         if (scheme != "http" && scheme != "https") return spec
-        if (spec.position != 0L || spec.length != C.LENGTH_UNSET) return spec
+        // C.LENGTH_UNSET is an int constant (media3) while DataSpec.length is
+        // a long - Kotlin needs the explicit widening conversion.
+        if (spec.position != 0L || spec.length != C.LENGTH_UNSET.toLong()) return spec
         if (spec.httpRequestHeaders.containsKey("Range")) return spec
         val headers = HashMap(spec.httpRequestHeaders)
         headers["Range"] = "bytes=0-"
