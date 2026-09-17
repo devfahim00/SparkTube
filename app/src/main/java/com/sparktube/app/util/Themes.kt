@@ -80,6 +80,8 @@ object Themes {
 
     fun accentColor(context: Context): Int = color(context, R.attr.accent)
     fun elevatedColor(context: Context): Int = color(context, R.attr.elevatedBg)
-    fun onSurfaceColor(context: Context): Int = color(context, R.attr.colorOnSurface)
-    fun onSurfaceVariantColor(context: Context): Int = color(context, R.attr.colorOnSurfaceVariant)
+
+    /** Text colors follow the day/night palette directly. */
+    fun onSurfaceColor(context: Context): Int = context.getColor(R.color.on_surface)
+    fun onSurfaceVariantColor(context: Context): Int = context.getColor(R.color.on_surface_variant)
 }

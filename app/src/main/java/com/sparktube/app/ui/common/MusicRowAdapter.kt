@@ -43,9 +43,9 @@ class MusicRowAdapter(
         Thumbs.load(b.art, item.thumbnailUrl)
 
         b.root.setOnClickListener { onClick(item) }
-        if (onLongClick != null) {
+        onLongClick?.let { callback ->
             b.root.setOnLongClickListener {
-                onLongClick(item)
+                callback(item)
                 true
             }
         }

@@ -16,7 +16,7 @@ import com.sparktube.app.download.DownloadCenter
 import com.sparktube.app.playback.PlaybackCenter
 import com.sparktube.app.playback.QueueEntry
 import com.sparktube.app.ui.common.MusicRowAdapter
-import com.sparktube.app.ui.common.toUiModel
+import com.sparktube.app.ui.common.VideoUiModel
 import com.sparktube.app.util.Themes
 import java.io.File
 
@@ -84,7 +84,7 @@ class MusicListActivity : AppCompatActivity() {
                 }
             binding.emptyView.setText(R.string.empty_music_downloads)
         }
-        adapter.submitList(entries.map { it.toUiModel() })
+        adapter.submitList(entries.map { it.toRowModel() })
         binding.emptyView.isVisible = entries.isEmpty()
     }
 
@@ -120,6 +120,16 @@ private fun VideoEntry.toQueueEntry(): QueueEntry = QueueEntry(
     thumbnailUrl = thumbnailUrl,
     durationSec = durationSec,
     isMusic = true
+)
+
+private fun QueueEntry.toRowModel(): VideoUiModel = VideoUiModel(
+    url = url,
+    title = title,
+    uploader = uploader,
+    thumbnailUrl = thumbnailUrl,
+    durationSec = durationSec,
+    viewCount = -1L,
+    uploadDate = ""
 )
 
 private fun com.sparktube.app.data.DownloadRecord.toQueueEntry(path: String): QueueEntry = QueueEntry(
