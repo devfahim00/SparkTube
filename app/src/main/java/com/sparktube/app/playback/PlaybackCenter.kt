@@ -15,6 +15,7 @@ import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.source.MergingMediaSource
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
@@ -216,6 +217,14 @@ object PlaybackCenter {
         get() {
             check(this::appContext.isInitialized) { "PlaybackCenter.init() not called" }
             return playerRef ?: ExoPlayer.Builder(appContext)
+                // IMPORTANT: player.setMediaItems() (music playlist!) builds
+                // its MediaSources through this factory. Without it the
+                // player falls back to its own default data source chain,
+                // which cannot resolve the virtual sparktube:// queue URIs:
+                // every song fails with "MalformedURLException: unknown
+                // protocol: sparktube" and playback skips to the next track
+                // (which fails the same way).
+                .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
                 .setAudioAttributes(
                     AudioAttributes.Builder()
                         .setUsage(C.USAGE_MEDIA)
