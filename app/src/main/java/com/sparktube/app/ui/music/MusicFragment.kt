@@ -83,47 +83,50 @@ class MusicFragment : Fragment() {
 
     private fun load() {
         loadJob?.cancel()
+        // Same as HomeFragment: work on a captured binding reference so a
+        // theme-change relaunch (view destroyed mid-coroutine) cannot NPE.
+        val b = _binding ?: return
         loadJob = viewLifecycleOwner.lifecycleScope.launch {
-            binding.loading.isVisible = true
-            binding.errorView.isVisible = false
+            b.loading.isVisible = true
+            b.errorView.isVisible = false
             try {
                 val result = YtRepository.musicTrending(AppPrefs.countryOrDefault)
                 val models = result.items.map { it.toUiModel() }
-                bindTrending(models)
+                bindTrending(b, models)
             } catch (e: Exception) {
-                binding.errorText.text = Formatters.friendlyException(e)
-                binding.errorView.isVisible = true
+                b.errorText.text = Formatters.friendlyException(e)
+                b.errorView.isVisible = true
             } finally {
-                binding.loading.isVisible = false
+                b.loading.isVisible = false
             }
         }
     }
 
-    private fun bindTrending(models: List<VideoUiModel>) {
+    private fun bindTrending(b: FragmentMusicBinding, models: List<VideoUiModel>) {
         // --- Trending shelf (square art cards) ---
-        binding.shelfTitle.isVisible = models.isNotEmpty()
-        binding.shelfScroller.isVisible = models.isNotEmpty()
-        binding.shelfRow.removeAllViews()
+        b.shelfTitle.isVisible = models.isNotEmpty()
+        b.shelfScroller.isVisible = models.isNotEmpty()
+        b.shelfRow.removeAllViews()
         models.take(12).forEach { model ->
-            val card = layoutInflater.inflate(R.layout.item_music_card, binding.shelfRow, false)
+            val card = layoutInflater.inflate(R.layout.item_music_card, b.shelfRow, false)
             Thumbs.load(card.findViewById(R.id.art), model.thumbnailUrl)
             card.findViewById<TextView>(R.id.title).text = model.title
             card.findViewById<TextView>(R.id.subtitle).text = model.uploader
             card.setOnClickListener { playSong(model, radio = true) }
-            binding.shelfRow.addView(card)
+            b.shelfRow.addView(card)
         }
 
         // --- Popular list ---
-        binding.popularTitle.isVisible = models.isNotEmpty()
-        binding.popularList.removeAllViews()
+        b.popularTitle.isVisible = models.isNotEmpty()
+        b.popularList.removeAllViews()
         models.drop(12).take(15).forEach { model ->
-            val row = layoutInflater.inflate(R.layout.item_music_row, binding.popularList, false)
+            val row = layoutInflater.inflate(R.layout.item_music_row, b.popularList, false)
             Thumbs.load(row.findViewById(R.id.art), model.thumbnailUrl)
             row.findViewById<TextView>(R.id.title).text = model.title
             row.findViewById<TextView>(R.id.subtitle).text = model.uploader
             row.findViewById<TextView>(R.id.duration).text = model.durationLabel
             row.setOnClickListener { playSong(model, radio = true) }
-            binding.popularList.addView(row)
+            b.popularList.addView(row)
         }
     }
 

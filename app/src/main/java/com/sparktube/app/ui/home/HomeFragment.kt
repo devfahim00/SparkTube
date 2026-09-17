@@ -92,28 +92,35 @@ class HomeFragment : Fragment() {
         loadedGeneration = RecommendEngine.generation(requireContext())
 
         loadJob?.cancel()
+        // Capture the binding: a theme change relaunches the activity, which
+        // destroys this view (nulling _binding) while the coroutine may still
+        // be suspended on IO. Touching `binding` after that crashed the app
+        // (NullPointerException in the finally block), so the coroutine works
+        // on its own stable reference instead.
+        val b = _binding ?: return
+        val ctx = requireContext()
         loadJob = viewLifecycleOwner.lifecycleScope.launch {
-            binding.loading.isVisible = true
-            binding.errorView.isVisible = false
-            binding.emptyView.isVisible = false
+            b.loading.isVisible = true
+            b.errorView.isVisible = false
+            b.emptyView.isVisible = false
             try {
                 val snap = withContext(Dispatchers.IO) {
-                    RecommendEngine.snapshot(requireContext())
+                    RecommendEngine.snapshot(ctx)
                 }
                 val items = YtRepository.personalizedFeed(country, snap)
                 adapter.submitList(items.map { it.toUiModel() })
-                binding.emptyView.isVisible = items.isEmpty()
+                b.emptyView.isVisible = items.isEmpty()
                 if (items.isEmpty()) {
-                    binding.errorText.text = getString(R.string.error_no_results)
-                    binding.errorView.isVisible = true
+                    b.errorText.text = getString(R.string.error_no_results)
+                    b.errorView.isVisible = true
                 }
             } catch (e: Exception) {
                 adapter.submitList(emptyList())
-                binding.errorText.text = Formatters.friendlyException(e)
-                binding.errorView.isVisible = true
+                b.errorText.text = Formatters.friendlyException(e)
+                b.errorView.isVisible = true
             } finally {
-                binding.loading.isVisible = false
-                binding.swipe.isRefreshing = false
+                b.loading.isVisible = false
+                b.swipe.isRefreshing = false
             }
         }
     }

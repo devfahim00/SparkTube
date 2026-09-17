@@ -13,6 +13,7 @@ object AppPrefs {
     private const val KEY_VIDEO_AUTOPLAY_NEXT = "video_autoplay_next"
     private const val KEY_MUSIC_AUDIO_QUALITY = "music_audio_quality"
     private const val KEY_MUSIC_AUTOPLAY_NEXT = "music_autoplay_next"
+    private const val KEY_ANIMATIONS = "animations"
 
     const val DEFAULT_COUNTRY = "US"
 
@@ -78,5 +79,12 @@ object AppPrefs {
         get() = sp.getBoolean(KEY_MUSIC_AUTOPLAY_NEXT, true)
         set(value) {
             sp.edit().putBoolean(KEY_MUSIC_AUTOPLAY_NEXT, value).apply()
+        }
+
+    /** UI animations (tab switches, transitions): on by default. */
+    var animations: Boolean
+        get() = sp.getBoolean(KEY_ANIMATIONS, true)
+        set(value) {
+            sp.edit().putBoolean(KEY_ANIMATIONS, value).apply()
         }
 }

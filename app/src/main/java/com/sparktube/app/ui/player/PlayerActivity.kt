@@ -16,11 +16,15 @@ import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowManager
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
 import androidx.media3.ui.R as Media3R
@@ -61,6 +65,9 @@ class PlayerActivity : AppCompatActivity() {
 
     private var swipeTriggered = false
     private lateinit var gestureDetector: GestureDetector
+
+    /** Mirrors the built-in controller's visibility (gear / seek controls). */
+    private var controllerVisible = false
 
     private val playbackListener = object : PlaybackCenter.Listener {
         override fun onItemChanged(entry: QueueEntry?) {
@@ -106,6 +113,17 @@ class PlayerActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityPlayerBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        // Watching a video should keep the screen on.
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
+        // The fullscreen button only appears together with the player's own
+        // controls (gear / seek bar), like the official app.
+        binding.fullscreenButton.isVisible = false
+        binding.playerView.setControllerVisibilityListener { visibility ->
+            controllerVisible = visibility == View.VISIBLE
+            syncFullscreenButtonVisibility()
+        }
 
         relatedAdapter = VideoAdapter(onClick = { model ->
             // Play inside this page so swipe/mini flow keeps working.
@@ -192,6 +210,24 @@ class PlayerActivity : AppCompatActivity() {
         gear?.setOnClickListener { showVideoSettingsSheet() }
     }
 
+    /** Fullscreen button follows the built-in controller's visibility. */
+    private fun syncFullscreenButtonVisibility() {
+        binding.fullscreenButton.isVisible =
+            !isInPictureInPictureMode && controllerVisible
+    }
+
+    /** Real fullscreen: hide status + navigation bars while landscape. */
+    private fun applyImmersive(landscape: Boolean) {
+        val controller = WindowCompat.getInsetsController(window, window.decorView)
+        if (landscape) {
+            controller.systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            controller.hide(WindowInsetsCompat.Type.systemBars())
+        } else {
+            controller.show(WindowInsetsCompat.Type.systemBars())
+        }
+    }
+
     private fun toggleFullscreen() {
         val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         requestedOrientation = if (landscape) {
@@ -212,6 +248,7 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (Themes.recreateIfNeeded(this)) return
         if (!isInPictureInPictureMode) {
             PlaybackCenter.attachView(binding.playerView)
         }
@@ -285,12 +322,12 @@ class PlayerActivity : AppCompatActivity() {
                 dimensionRatio = null
             }
         } else {
-            binding.fullscreenButton.isVisible = true
             binding.scrollArea.isVisible = true
             binding.playerView.updateLayoutParams<ConstraintLayout.LayoutParams> {
                 height = 0
                 dimensionRatio = "16:9"
             }
+            syncFullscreenButtonVisibility()
         }
     }
 
@@ -306,6 +343,9 @@ class PlayerActivity : AppCompatActivity() {
         binding.fullscreenButton.setImageResource(
             if (landscape) R.drawable.ic_fullscreen_exit else R.drawable.ic_fullscreen
         )
+        // Landscape video = immersive: no notification bar, no nav bar, the
+        // video fills the whole screen. Portrait restores normal system bars.
+        applyImmersive(landscape)
         if (landscape) {
             binding.scrollArea.isVisible = false
             binding.playerView.updateLayoutParams<ConstraintLayout.LayoutParams> {
@@ -435,6 +475,11 @@ class PlayerActivity : AppCompatActivity() {
         override fun run() {
             val entry = PlaybackCenter.currentEntry
             if (entry != null && !isFinishing) {
+                // Keep the registry in sync with the system download manager
+                // so a finished download flips to "Downloaded" right away.
+                if (DownloadCenter.hasActiveDownload(this@PlayerActivity, entry.url)) {
+                    DownloadCenter.refreshStatuses(this@PlayerActivity)
+                }
                 updateDownloadUi()
             }
             downloadHandler.postDelayed(this, 1000)
@@ -638,7 +683,8 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun qualitySummary(catalog: StreamCatalog): String {
-        val current = PlaybackCenter.selectedQualityHeight ?: return getString(R.string.quality_auto_short)
+        val current = PlaybackCenter.effectiveSelectedHeight(catalog)
+            ?: return getString(R.string.quality_auto_short)
         if (current == -1) return getString(R.string.quality_audio_only)
         val fps = catalog.videoOnly.firstOrNull { it.effectiveHeight() == current }?.fps
             ?: catalog.muxed.firstOrNull { it.effectiveHeight() == current }?.fps ?: 0
@@ -670,7 +716,7 @@ class PlayerActivity : AppCompatActivity() {
         val root = sheetRoot()
         root.addView(sheetTitle(getString(R.string.settings_quality_section)))
 
-        val currentHeight = PlaybackCenter.selectedQualityHeight
+        val currentHeight = PlaybackCenter.effectiveSelectedHeight(catalog)
         root.addView(
             sheetRow(getString(R.string.quality_auto), currentHeight == null) {
                 PlaybackCenter.setVideoQuality(null)

@@ -208,7 +208,11 @@ object DownloadCenter {
         LocalStore.removeDownload(context, record)
     }
 
-    /** Re-syncs statuses of unfinished downloads (missed broadcasts etc). */
+    /**
+     * Re-syncs statuses of unfinished downloads (missed broadcasts etc).
+     * A multi-file record (AV = video + audio pair) only flips to DONE when
+     * EVERY file finished; a single finished part keeps it RUNNING.
+     */
     fun refreshStatuses(context: Context) {
         val dm = downloadManager(context)
         LocalStore.downloads(context).filter { it.status != STATUS_DONE && it.status != STATUS_FAILED }
@@ -216,23 +220,26 @@ object DownloadCenter {
                 val query = DownloadManager.Query().setFilterById(*record.downloadIds.toLongArray())
                 dm.query(query)?.use { cursor ->
                     if (cursor.moveToFirst()) {
-                        val status = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
-                        val newStatus = when (status) {
-                            DownloadManager.STATUS_SUCCESSFUL -> STATUS_DONE
-                            DownloadManager.STATUS_FAILED -> STATUS_FAILED
-                            DownloadManager.STATUS_RUNNING, DownloadManager.STATUS_PAUSED -> STATUS_RUNNING
-                            else -> STATUS_PENDING
+                        var allDone = true
+                        var anyFailed = false
+                        do {
+                            when (cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))) {
+                                DownloadManager.STATUS_SUCCESSFUL -> Unit
+                                DownloadManager.STATUS_FAILED -> anyFailed = true
+                                else -> allDone = false
+                            }
+                        } while (cursor.moveToNext())
+                        val newStatus = when {
+                            anyFailed -> STATUS_FAILED
+                            allDone -> STATUS_DONE
+                            else -> STATUS_RUNNING
                         }
                         if (newStatus != record.status) {
-                            record.downloadIds.forEach { id ->
-                                LocalStore.updateDownloadStatus(context, id, newStatus)
-                            }
+                            LocalStore.updateDownloadStatus(context, record.downloadIds.first(), newStatus)
                         }
                     } else {
                         // Download vanished from the manager (app data cleared etc.)
-                        record.downloadIds.forEach { id ->
-                            LocalStore.updateDownloadStatus(context, id, STATUS_FAILED)
-                        }
+                        LocalStore.updateDownloadStatus(context, record.downloadIds.first(), STATUS_FAILED)
                     }
                 }
             }
@@ -253,11 +260,11 @@ class DownloadCompletionReceiver : BroadcastReceiver() {
                     DownloadManager.STATUS_SUCCESSFUL
             }
         }
-        LocalStore.updateDownloadStatus(
-            context,
-            id,
-            if (succeeded) DownloadCenter.STATUS_DONE else DownloadCenter.STATUS_FAILED
-        )
+        // Re-sync the whole registry: multi-file records (AV pairs) must only
+        // turn DONE when every file arrived. Updating just the one id here
+        // used to mark the whole pair as downloaded while the second file was
+        // still in flight.
+        DownloadCenter.refreshStatuses(context)
         if (succeeded) {
             Toast.makeText(context, R.string.download_status_done, Toast.LENGTH_SHORT).show()
         }

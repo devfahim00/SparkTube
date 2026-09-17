@@ -5,6 +5,8 @@
     <color name="surface">#FFFFFF</color>
     <color name="surface_elevated">#EFEFF2</color>
     <color name="navbar_bg">#F5F5F7</color>
+    <!-- Floating navbar outline: visible black in light theme. -->
+    <color name="nav_border">#59000000</color>
 
     <color name="spark_red">#F03E3E</color>
     <color name="music_green">#1DB954</color>

@@ -113,6 +113,12 @@ class NowPlayingActivity : AppCompatActivity() {
         handler.post(progressRunnable)
     }
 
+    override fun onResume() {
+        super.onResume()
+        // A theme / accent change while we were in the background.
+        Themes.recreateIfNeeded(this)
+    }
+
     override fun onStop() {
         super.onStop()
         PlaybackCenter.removeListener(playbackListener)
@@ -202,6 +208,11 @@ class NowPlayingActivity : AppCompatActivity() {
     private fun updateDownloadState() {
         val entry = PlaybackCenter.currentEntry ?: return
         if (isFinishing) return
+        // Re-sync with the system download manager so a finished download
+        // shows "Downloaded" instead of sticking at "Downloading • 100%".
+        if (DownloadCenter.hasActiveDownload(this, entry.url)) {
+            DownloadCenter.refreshStatuses(this)
+        }
         when {
             DownloadCenter.isDownloaded(this, entry.url) -> {
                 binding.downloadButton.setImageResource(R.drawable.ic_check)

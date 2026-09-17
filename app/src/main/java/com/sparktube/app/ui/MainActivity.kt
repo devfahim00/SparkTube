@@ -24,6 +24,7 @@ import com.sparktube.app.ui.menu.MenuFragment
 import com.sparktube.app.ui.music.MusicFragment
 import com.sparktube.app.ui.music.NowPlayingActivity
 import com.sparktube.app.ui.player.PlayerActivity
+import com.sparktube.app.util.AppPrefs
 import com.sparktube.app.util.Themes
 import com.sparktube.app.util.UpdateChecker
 import com.sparktube.app.util.Thumbs
@@ -212,6 +213,13 @@ class MainActivity : AppCompatActivity() {
     private fun applySelection() {
         val fm = supportFragmentManager
         val tx = fm.beginTransaction()
+        if (AppPrefs.animations) {
+            // Gentle cross-fade + slide-up on the incoming tab.
+            tx.setCustomAnimations(
+                R.anim.tab_enter, R.anim.tab_exit,
+                R.anim.tab_enter, R.anim.tab_exit
+            )
+        }
         fragments.values.forEach { tx.hide(it) }
         val target = fragments[selectedId] ?: createFragment(selectedId).also {
             fragments[selectedId] = it

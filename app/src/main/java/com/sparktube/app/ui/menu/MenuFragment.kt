@@ -168,7 +168,17 @@ class MenuFragment : Fragment() {
                 showAccentPicker()
             }
         )
-        showSheet(sheet, root, peekDp = 260)
+        root.addView(
+            sheetMenuRow(
+                getString(R.string.settings_animations),
+                if (AppPrefs.animations) getString(R.string.on) else getString(R.string.off)
+            ) {
+                AppPrefs.animations = !AppPrefs.animations
+                sheet.dismiss()
+                showSettingsSheet()
+            }
+        )
+        showSheet(sheet, root, peekDp = 300)
     }
 
     private fun themeLabel(): String = when (AppPrefs.theme) {
@@ -442,10 +452,13 @@ class MenuFragment : Fragment() {
 
     private fun doImport(uri: Uri) {
         val ctx = context ?: return
+        val act = activity
         viewLifecycleOwner.lifecycleScope.launch {
             val ok = BackupManager.importFrom(ctx, uri)
-            // The stored theme may have changed: re-apply the night mode.
+            // The stored theme may have changed: re-apply the night mode and
+            // refresh this screen right away when the visual prefs moved.
             Themes.applyDefaultNightMode()
+            act?.let { Themes.recreateIfNeeded(it) }
             Toast.makeText(
                 ctx,
                 if (ok) R.string.import_done else R.string.import_failed,

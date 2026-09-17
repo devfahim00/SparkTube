@@ -205,7 +205,27 @@ object PlaybackCenter {
         private set
     private var selectedHeight: Int? = null
 
+    /** Set when the user explicitly picked "Auto" in the gear menu. */
+    private var autoPicked = false
+
     val selectedQualityHeight: Int? get() = selectedHeight
+
+    /**
+     * The quality actually in effect for [c]: an explicit gear-menu pick,
+     * otherwise the default-video-quality from settings (what [videoForSelection]
+     * really plays). Used by the gear menu so a settings default like 720p
+     * shows up as "720p" instead of "Auto".
+     */
+    fun effectiveSelectedHeight(c: StreamCatalog): Int? {
+        selectedHeight?.let { return it }
+        if (autoPicked) return null
+        val default = AppPrefs.defaultVideoHeight
+        if (default <= 0) return null
+        val candidates = c.videoOnly.ifEmpty { c.muxed }
+        return candidates.filter { it.effectiveHeight() <= default }
+            .maxByOrNull { it.effectiveHeight() }?.effectiveHeight()
+            ?: candidates.minByOrNull { it.effectiveHeight() }?.effectiveHeight()
+    }
 
     val selectedAudioTrackLabel: String?
         get() = selectedAudioTrackId?.let { id ->
@@ -492,9 +512,12 @@ object PlaybackCenter {
         if (height == -1) {
             audioOnlyMode = true
             selectedHeight = -1
+            autoPicked = false
         } else {
             audioOnlyMode = false
             selectedHeight = height
+            // Explicit "Auto" beats the settings default for this session.
+            autoPicked = height == null
         }
         // Explicit user action: give adaptive streams another chance even
         // if an earlier error had dropped us to a muxed fallback.
@@ -820,7 +843,7 @@ object PlaybackCenter {
         return when {
             height == null -> {
                 val default = AppPrefs.defaultVideoHeight
-                if (default > 0) {
+                if (default > 0 && !autoPicked) {
                     // User default: the chosen quality, or the best one below
                     // it when the exact height is not available.
                     val candidates = c.videoOnly.ifEmpty { c.muxed }

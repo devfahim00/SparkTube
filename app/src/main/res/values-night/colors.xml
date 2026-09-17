@@ -5,6 +5,8 @@
     <color name="surface">#1C1C20</color>
     <color name="surface_elevated">#26262C</color>
     <color name="navbar_bg">#2A2A31</color>
+    <!-- Floating navbar outline: faint white in dark theme. -->
+    <color name="nav_border">#26FFFFFF</color>
 
     <color name="on_surface">#ECEDEF</color>
     <color name="on_surface_variant">#A6A9B0</color>

@@ -159,6 +159,12 @@ class SearchActivity : AppCompatActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        // A theme / accent change while we were in the background.
+        Themes.recreateIfNeeded(this)
+    }
+
     private fun playMusic(model: VideoUiModel) {
         PlaybackCenter.playMusic(model.toQueueEntry(isMusic = true), radio = true)
         NowPlayingActivity.start(this)

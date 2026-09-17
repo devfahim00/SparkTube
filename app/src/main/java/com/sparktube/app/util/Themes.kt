@@ -5,6 +5,8 @@ import android.content.Context
 import android.util.TypedValue
 import androidx.appcompat.app.AppCompatDelegate
 import com.sparktube.app.R
+import java.util.Collections
+import java.util.WeakHashMap
 
 /**
  * Theme plumbing: night mode (auto / light / dark) plus the pitch-black
@@ -14,9 +16,16 @@ import com.sparktube.app.R
  */
 object Themes {
 
-    /** Set when a visual preference changed; activities recreate on resume. */
-    @Volatile
-    private var dirty = false
+    /**
+     * Theme + accent signature each activity applied in onCreate. Kept per
+     * activity (weak) so back-stack screens can detect a change on resume
+     * WITHOUT the global dirty flag re-recreating the already-refreshed
+     * foreground activity a second (or third) time.
+     */
+    private val appliedStamps: MutableMap<Activity, String> =
+        Collections.synchronizedMap(WeakHashMap<Activity, String>())
+
+    private fun stampOf(): String = "${AppPrefs.theme}|${AppPrefs.accent}"
 
     fun nightModeOf(theme: String): Int = when (theme) {
         AppPrefs.THEME_LIGHT -> AppCompatDelegate.MODE_NIGHT_NO
@@ -46,27 +55,34 @@ object Themes {
             activity.setTheme(R.style.Theme_SparkTube_PitchBlack)
         }
         activity.theme.applyStyle(accentOverlayOf(AppPrefs.accent), true)
+        appliedStamps[activity] = stampOf()
     }
 
-    /** Persists a new theme and triggers a global refresh. */
+    /**
+     * Persists a new theme and refreshes everything exactly once:
+     * a real night-mode change lets AppCompatDelegate recreate all activities
+     * by itself; same-mode switches (dark <-> pitch_black) recreate just the
+     * calling activity. Others catch up via [recreateIfNeeded] on resume.
+     */
     fun setTheme(theme: String, activity: Activity? = null) {
         AppPrefs.theme = theme
-        AppCompatDelegate.setDefaultNightMode(nightModeOf(theme))
-        dirty = true
-        activity?.recreate()
+        val newMode = nightModeOf(theme)
+        val modeChanged = AppCompatDelegate.getDefaultNightMode() != newMode
+        AppCompatDelegate.setDefaultNightMode(newMode)
+        if (!modeChanged) {
+            activity?.recreate()
+        }
     }
 
-    /** Persists a new accent and triggers a global refresh. */
+    /** Persists a new accent and refreshes the visible activity immediately. */
     fun setAccent(accent: String, activity: Activity? = null) {
         AppPrefs.accent = accent
-        dirty = true
         activity?.recreate()
     }
 
     /** Activities call this in onResume; returns true when recreating. */
     fun recreateIfNeeded(activity: Activity): Boolean {
-        if (!dirty) return false
-        dirty = false
+        if (appliedStamps[activity] == stampOf()) return false
         activity.recreate()
         return true
     }

@@ -67,6 +67,8 @@ class MusicListActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        // A theme / accent change while we were in the background.
+        Themes.recreateIfNeeded(this)
         reload()
     }
 

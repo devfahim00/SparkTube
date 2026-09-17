@@ -2,5 +2,7 @@
 <shape xmlns:android="http://schemas.android.com/apk/res/android">
     <solid android:color="@color/navbar_bg" />
     <corners android:radius="30dp" />
-    <stroke android:width="1dp" android:color="#26FFFFFF" />
+    <!-- Dark outline so the floating bar reads as its own object. Light
+         theme uses a soft black border; dark keeps the subtle white one. -->
+    <stroke android:width="1dp" android:color="@color/nav_border" />
 </shape>
