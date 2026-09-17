@@ -1,8 +1,9 @@
 package com.sparktube.app
 
 import android.app.Application
-import android.content.IntentFilter
 import android.app.DownloadManager
+import android.content.IntentFilter
+import androidx.core.content.ContextCompat
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import com.sparktube.app.download.DownloadCompletionReceiver
@@ -26,7 +27,13 @@ class SparkTubeApp : Application(), ImageLoaderFactory {
             Localization("en", "US"),
             ContentCountry(AppPrefs.countryOrDefault)
         )
-        registerReceiver(downloadReceiver, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE))
+        // Android 14+ requires an export flag even for this system broadcast.
+        ContextCompat.registerReceiver(
+            this,
+            downloadReceiver,
+            IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
     }
 
     override fun newImageLoader(): ImageLoader =
