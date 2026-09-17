@@ -91,7 +91,7 @@ object LocalStore {
         val q = query.trim()
         if (q.isEmpty()) return
         val ctx = context.applicationContext
-        val list = readSearches(ctx, KEY_SEARCHES).toMutableList()
+        val list = readSearches(prefs(ctx), KEY_SEARCHES).toMutableList()
         list.removeAll { it.equals(q, ignoreCase = true) }
         list.add(0, q)
         while (list.size > MAX_SEARCHES) {
@@ -102,7 +102,7 @@ object LocalStore {
 
     fun removeSearch(context: Context, query: String) {
         val ctx = context.applicationContext
-        val list = readSearches(ctx, KEY_SEARCHES).toMutableList()
+        val list = readSearches(prefs(ctx), KEY_SEARCHES).toMutableList()
         list.removeAll { it == query }
         prefs(ctx).edit().putString(KEY_SEARCHES, JSONArray(list).toString()).apply()
     }
