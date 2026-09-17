@@ -7,50 +7,45 @@
     android:orientation="vertical">
 
     <LinearLayout
-        android:id="@+id/searchBar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
-        android:layout_marginTop="12dp"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="4dp"
-        android:background="@drawable/bg_search_bar"
-        android:clickable="true"
-        android:focusable="true"
         android:gravity="center_vertical"
         android:orientation="horizontal"
         android:paddingStart="16dp"
-        android:paddingTop="12dp"
-        android:paddingEnd="16dp"
-        android:paddingBottom="12dp">
-
-        <ImageView
-            android:layout_width="20dp"
-            android:layout_height="20dp"
-            android:importantForAccessibility="no"
-            android:src="@drawable/ic_search"
-            app:tint="@color/on_surface_variant" />
+        android:paddingTop="14dp"
+        android:paddingEnd="8dp"
+        android:paddingBottom="6dp">
 
         <TextView
+            android:id="@+id/appTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="12dp"
-            android:text="@string/search_hint"
-            android:textColor="@color/on_surface_variant"
-            android:textSize="15sp" />
-    </LinearLayout>
+            android:text="@string/app_name"
+            android:textColor="@color/on_surface"
+            android:textSize="22sp"
+            android:textStyle="bold" />
 
-    <TextView
-        android:id="@+id/trendingLabel"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
-        android:layout_marginTop="10dp"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="6dp"
-        android:textColor="@color/on_surface"
-        android:textSize="16sp"
-        android:textStyle="bold" />
+        <TextView
+            android:id="@+id/countryFlag"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:textSize="20sp" />
+
+        <Space
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <ImageButton
+            android:id="@+id/searchButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/search_hint"
+            android:src="@drawable/ic_search"
+            app:tint="@color/on_surface" />
+    </LinearLayout>
 
     <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
         android:id="@+id/swipe"

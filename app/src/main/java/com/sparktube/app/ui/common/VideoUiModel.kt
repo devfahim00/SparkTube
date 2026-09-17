@@ -60,3 +60,13 @@ fun VideoUiModel.toEntry(): VideoEntry = VideoEntry(
     thumbnailUrl = thumbnailUrl,
     durationSec = durationSec
 )
+
+fun VideoUiModel.toQueueEntry(isMusic: Boolean = false): com.sparktube.app.playback.QueueEntry =
+    com.sparktube.app.playback.QueueEntry(
+        url = url,
+        title = title,
+        uploader = uploader,
+        thumbnailUrl = thumbnailUrl,
+        durationSec = durationSec,
+        isMusic = isMusic
+    )

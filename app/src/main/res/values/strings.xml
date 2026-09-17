@@ -18,13 +18,18 @@
 
     <!-- Home -->
     <string name="search_hint">Search videos</string>
+    <string name="search_music_hint">Search songs</string>
     <string name="trending_in">Suggested in %1$s %2$s</string>
 
     <!-- Library -->
     <string name="tab_history">History</string>
     <string name="tab_favorites">Favorites</string>
+    <string name="tab_subscriptions">Subscriptions</string>
+    <string name="tab_downloads">Downloads</string>
     <string name="empty_history">Videos you watch will show up here</string>
     <string name="empty_favorites">Tap the heart while playing a video to save it here</string>
+    <string name="empty_subscriptions">Subscribe to channels from a video page to see them here</string>
+    <string name="empty_downloads">Downloads you start will show up here</string>
     <string name="removed_from_history">Removed from history</string>
     <string name="removed_from_favorites">Removed from favorites</string>
     <string name="added_to_favorites">Added to favorites</string>
@@ -47,6 +52,61 @@
     <!-- Player / errors -->
     <string name="live_not_supported">Live streams are not shown in SparkTube</string>
     <string name="error_no_results">No videos found</string>
+    <string name="error_no_songs">No songs found</string>
     <string name="error_no_streams">This video cannot be played</string>
     <string name="retry">Retry</string>
+
+    <!-- Player actions -->
+    <string name="action_favorite">Favorite</string>
+    <string name="saved_short">Saved</string>
+    <string name="action_share">Share</string>
+    <string name="action_download">Download</string>
+    <string name="action_background">Background play</string>
+    <string name="action_pip">Picture in picture</string>
+    <string name="action_speed">Playback speed</string>
+    <string name="action_quality">Quality</string>
+    <string name="action_audio_track">Audio track</string>
+    <string name="quality_auto">Auto (best available)</string>
+    <string name="quality_audio_only">Audio only</string>
+    <string name="speed_label">Playback speed</string>
+    <string name="audio_track_label">Audio track</string>
+    <string name="quality_label">Video quality</string>
+    <string name="subscribers_fmt">%1$s subscribers</string>
+    <string name="views_fmt">%1$s views</string>
+    <string name="related_videos">Related</string>
+    <string name="subscribe">SUBSCRIBE</string>
+    <string name="subscribed">SUBSCRIBED</string>
+    <string name="subscribed_toast">Subscribed</string>
+    <string name="unsubscribed_toast">Unsubscribed</string>
+    <string name="background_started">Playing in background</string>
+    <string name="pip_unsupported">Picture in picture is not supported on this device</string>
+    <string name="share_via">Share video via</string>
+
+    <!-- Downloads -->
+    <string name="download_started">Download started</string>
+    <string name="download_audio_section">Audio only</string>
+    <string name="download_video_section">Video only</string>
+    <string name="download_av_section">Video + Audio</string>
+    <string name="download_pair_note">Downloads the video and audio tracks as a pair — they play together in SparkTube</string>
+    <string name="download_muxed_note">Best quality (video + audio in one file, plays in any player)</string>
+    <string name="download_delete_confirm">Delete this download?</string>
+    <string name="download_deleted">Download deleted</string>
+    <string name="download_status_pending">Waiting</string>
+    <string name="download_status_running">Downloading</string>
+    <string name="download_status_done">Completed</string>
+    <string name="download_status_failed">Failed</string>
+    <string name="download_type_audio">Audio</string>
+    <string name="download_type_video">Video</string>
+    <string name="download_type_av">Video + Audio</string>
+
+    <!-- Music -->
+    <string name="music_trending_shelf">Trending now</string>
+    <string name="music_popular_section">Popular right now</string>
+    <string name="music_genres_section">Browse genres</string>
+    <string name="start_radio">Start radio</string>
+    <string name="radio_started">Radio started</string>
+    <string name="now_playing">Now playing</string>
+
+    <!-- Channel -->
+    <string name="channel_videos">Videos</string>
 </resources>

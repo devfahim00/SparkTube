@@ -50,8 +50,10 @@ class HomeFragment : Fragment() {
 
         binding.swipe.setOnRefreshListener { load() }
 
-        binding.searchBar.setOnClickListener {
-            startActivity(Intent(requireContext(), SearchActivity::class.java))
+        binding.searchButton.setOnClickListener {
+            startActivity(
+                SearchActivity.intent(requireContext(), music = false)
+            )
         }
 
         binding.retryButton.setOnClickListener { load() }
@@ -59,12 +61,17 @@ class HomeFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
+        // Flag follows the selected country at all times.
+        binding.countryFlag.text = Countries.flagOf(AppPrefs.countryOrDefault)
         maybeReload()
     }
 
     override fun onHiddenChanged(hidden: Boolean) {
         super.onHiddenChanged(hidden)
-        if (!hidden) maybeReload()
+        if (!hidden) {
+            binding.countryFlag.text = Countries.flagOf(AppPrefs.countryOrDefault)
+            maybeReload()
+        }
     }
 
     private fun maybeReload() {
@@ -77,11 +84,6 @@ class HomeFragment : Fragment() {
     private fun load() {
         val country = AppPrefs.countryOrDefault
         loadedCountry = country
-        binding.trendingLabel.text = getString(
-            R.string.trending_in,
-            Countries.flagOf(country),
-            Countries.nameOf(country)
-        )
 
         loadJob?.cancel()
         loadJob = viewLifecycleOwner.lifecycleScope.launch {

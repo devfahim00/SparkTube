@@ -8,7 +8,11 @@ import org.schabi.newpipe.extractor.NewPipe
 import org.schabi.newpipe.extractor.Page
 import org.schabi.newpipe.extractor.ServiceList
 import org.schabi.newpipe.extractor.StreamingService
+import org.schabi.newpipe.extractor.channel.ChannelInfo
+import org.schabi.newpipe.extractor.channel.tabs.ChannelTabInfo
+import org.schabi.newpipe.extractor.channel.tabs.ChannelTabs
 import org.schabi.newpipe.extractor.kiosk.KioskInfo
+import org.schabi.newpipe.extractor.linkhandler.ListLinkHandler
 import org.schabi.newpipe.extractor.localization.ContentCountry
 import org.schabi.newpipe.extractor.search.SearchInfo
 import org.schabi.newpipe.extractor.services.youtube.linkHandler.YoutubeSearchQueryHandlerFactory
@@ -19,6 +23,14 @@ import java.io.IOException
 data class PageResult(
     val items: List<StreamInfoItem>,
     val nextPage: Page?
+)
+
+data class ChannelUi(
+    val url: String,
+    val name: String,
+    val avatarUrl: String,
+    val subscriberCount: Long,
+    val description: String
 )
 
 /**
@@ -130,6 +142,64 @@ object YtRepository {
     suspend fun streamInfo(url: String): StreamInfo =
         withContext(Dispatchers.IO) {
             StreamInfo.getInfo(service, url)
+        }
+
+    /** Search keyword suggestions shown while the user types. */
+    suspend fun suggestions(query: String): List<String> =
+        withContext(Dispatchers.IO) {
+            if (query.isBlank()) {
+                emptyList()
+            } else {
+                runCatching {
+                    service.suggestionExtractor.suggestionList(query)
+                }.getOrDefault(emptyList())
+            }
+        }
+
+    /** Channel header: name, avatar, subscriber count. */
+    suspend fun channelInfo(url: String): ChannelUi =
+        withContext(Dispatchers.IO) {
+            val info = ChannelInfo.getInfo(service, url)
+            ChannelUi(
+                url = info.url ?: url,
+                name = info.name ?: "",
+                avatarUrl = info.avatars.maxByOrNull { it.height }?.url.orEmpty(),
+                subscriberCount = info.subscriberCount,
+                description = info.description.orEmpty()
+            )
+        }
+
+    /** First page of a channel's videos tab (live filtered out). */
+    suspend fun channelVideos(channelUrl: String): Pair<List<StreamInfoItem>, Page?> =
+        withContext(Dispatchers.IO) {
+            val info = ChannelInfo.getInfo(service, channelUrl)
+            val tab = info.tabs.firstOrNull { handler ->
+                handler.contentFilters.firstOrNull() == ChannelTabs.VIDEOS
+            } ?: return@withContext emptyList<StreamInfoItem>() to null
+            val page = ChannelTabInfo.getInfo(service, tab)
+            LiveFilter.sanitize(page.relatedItems) to page.nextPage
+        }
+
+    /** Next page of a channel's videos tab. */
+    suspend fun channelVideosMore(
+        channelUrl: String,
+        page: Page
+    ): Pair<List<StreamInfoItem>, Page?> =
+        withContext(Dispatchers.IO) {
+            val info = ChannelInfo.getInfo(service, channelUrl)
+            val tab = info.tabs.firstOrNull { handler ->
+                handler.contentFilters.firstOrNull() == ChannelTabs.VIDEOS
+            } ?: return@withContext emptyList<StreamInfoItem>() to null
+            val result = ChannelTabInfo.getMoreItems(service, tab, page)
+            LiveFilter.sanitize(result.items) to result.nextPage
+        }
+
+    /** Related videos for a stream (used for the watch page + radio autoplay). */
+    suspend fun related(url: String): List<StreamInfoItem> =
+        withContext(Dispatchers.IO) {
+            runCatching { streamInfo(url).relatedItems }
+                .getOrDefault(emptyList())
+                .let { LiveFilter.sanitize(it) }
         }
 
     private fun fetchKiosk(kioskId: String): List<StreamInfoItem> {

@@ -5,6 +5,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -12,17 +13,29 @@ import com.google.android.material.tabs.TabLayout
 import com.sparktube.app.R
 import com.sparktube.app.data.LocalStore
 import com.sparktube.app.databinding.FragmentLibraryBinding
+import com.sparktube.app.download.DownloadCenter
+import com.sparktube.app.playback.PlaybackCenter
+import com.sparktube.app.ui.channel.ChannelActivity
+import com.sparktube.app.ui.common.ChannelRowAdapter
+import com.sparktube.app.ui.common.DownloadAdapter
 import com.sparktube.app.ui.common.VideoAdapter
 import com.sparktube.app.ui.common.toEntry
 import com.sparktube.app.ui.common.toUiModel
 import com.sparktube.app.ui.player.PlayerActivity
 
+/**
+ * Library: History, Favorites, Subscriptions and Downloads tabs. Everything
+ * is stored locally on the device.
+ */
 class LibraryFragment : Fragment() {
 
     private var _binding: FragmentLibraryBinding? = null
     private val binding get() = _binding!!
 
-    private lateinit var adapter: VideoAdapter
+    private lateinit var videoAdapter: VideoAdapter
+    private lateinit var channelAdapter: ChannelRowAdapter
+    private lateinit var downloadAdapter: DownloadAdapter
+
     private var tab = TAB_HISTORY
 
     override fun onCreateView(
@@ -37,7 +50,7 @@ class LibraryFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        adapter = VideoAdapter(
+        videoAdapter = VideoAdapter(
             onClick = { model -> PlayerActivity.start(requireContext(), model) },
             onLongClick = { model ->
                 if (tab == TAB_HISTORY) {
@@ -51,9 +64,23 @@ class LibraryFragment : Fragment() {
                 true
             }
         )
+        channelAdapter = ChannelRowAdapter(
+            onClick = { channel ->
+                ChannelActivity.start(requireContext(), channel.url, channel.name)
+            },
+            onUnsubscribe = { channel ->
+                LocalStore.toggleSubscription(requireContext(), channel)
+                Toast.makeText(requireContext(), R.string.unsubscribed_toast, Toast.LENGTH_SHORT).show()
+                refresh()
+            }
+        )
+        downloadAdapter = DownloadAdapter(
+            onClick = { record -> PlaybackCenter.playDownload(record) },
+            onLongClick = { record -> confirmDelete(record) }
+        )
 
         binding.list.layoutManager = LinearLayoutManager(requireContext())
-        binding.list.adapter = adapter
+        binding.list.adapter = videoAdapter
 
         binding.tabs.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab) {
@@ -65,7 +92,7 @@ class LibraryFragment : Fragment() {
             override fun onTabReselected(tab: TabLayout.Tab) = Unit
         })
 
-        binding.tabs.selectTab(binding.tabs.getTabAt(TAB_HISTORY))
+        binding.tabs.selectTab(binding.tabs.getTabAt(tab))
     }
 
     override fun onResume() {
@@ -80,16 +107,51 @@ class LibraryFragment : Fragment() {
 
     private fun refresh() {
         val context = context ?: return
-        val entries = if (tab == TAB_HISTORY) {
-            LocalStore.history(context)
-        } else {
-            LocalStore.favorites(context)
+        when (tab) {
+            TAB_HISTORY -> bindVideos(LocalStore.history(context), R.string.empty_history)
+            TAB_FAVORITES -> bindVideos(LocalStore.favorites(context), R.string.empty_favorites)
+            TAB_SUBSCRIPTIONS -> bindChannels()
+            else -> bindDownloads()
         }
-        adapter.submitList(entries.map { it.toUiModel() })
-        binding.emptyView.setText(
-            if (tab == TAB_HISTORY) R.string.empty_history else R.string.empty_favorites
-        )
+    }
+
+    private fun bindVideos(entries: List<com.sparktube.app.data.VideoEntry>, emptyText: Int) {
+        binding.list.adapter = videoAdapter
+        videoAdapter.submitList(entries.map { it.toUiModel() })
+        binding.emptyView.setText(emptyText)
         binding.emptyView.isVisible = entries.isEmpty()
+    }
+
+    private fun bindChannels() {
+        val context = context ?: return
+        val channels = LocalStore.subscriptions(context)
+        binding.list.adapter = channelAdapter
+        channelAdapter.submitList(channels)
+        binding.emptyView.setText(R.string.empty_subscriptions)
+        binding.emptyView.isVisible = channels.isEmpty()
+    }
+
+    private fun bindDownloads() {
+        val context = context ?: return
+        DownloadCenter.refreshStatuses(context)
+        val downloads = LocalStore.downloads(context)
+        binding.list.adapter = downloadAdapter
+        downloadAdapter.submitList(downloads)
+        binding.emptyView.setText(R.string.empty_downloads)
+        binding.emptyView.isVisible = downloads.isEmpty()
+    }
+
+    private fun confirmDelete(record: com.sparktube.app.data.DownloadRecord) {
+        AlertDialog.Builder(requireContext())
+            .setTitle(R.string.download_delete_confirm)
+            .setMessage(record.title)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                DownloadCenter.delete(requireContext(), record)
+                Toast.makeText(requireContext(), R.string.download_deleted, Toast.LENGTH_SHORT).show()
+                refresh()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     override fun onDestroyView() {
@@ -100,5 +162,7 @@ class LibraryFragment : Fragment() {
     companion object {
         private const val TAB_HISTORY = 0
         private const val TAB_FAVORITES = 1
+        private const val TAB_SUBSCRIPTIONS = 2
+        private const val TAB_DOWNLOADS = 3
     }
 }
