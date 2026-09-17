@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg">#0F0F12</color>
+    <color name="surface">#1C1C20</color>
+    <color name="surface_elevated">#26262C</color>
+    <color name="navbar_bg">#2A2A31</color>
+
+    <color name="spark_red">#F03E3E</color>
+
+    <color name="white">#FFFFFFFF</color>
+    <color name="on_surface">#ECEDEF</color>
+    <color name="on_surface_variant">#A6A9B0</color>
+    <color name="outline">#464A52</color>
+    <color name="nav_inactive">#9CA0A8</color>
+
+    <color name="chip_selected_bg">#33F03E3E</color>
+    <color name="chip_normal_bg">#232329</color>
+    <color name="chip_selected_stroke">#F03E3E</color>
+
+    <color name="thumbnail_placeholder">#232329</color>
+
+    <color name="badge_bg">#CC000000</color>
+    <color name="ic_launcher_background">#17171B</color>
+</resources>

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.SparkTube" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">@color/spark_red</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorPrimaryContainer">#3B1D1D</item>
+        <item name="colorOnPrimaryContainer">#FFDAD6</item>
+
+        <item name="android:colorBackground">@color/bg</item>
+        <item name="colorSurface">@color/surface</item>
+        <item name="colorOnSurface">@color/on_surface</item>
+        <item name="colorOnSurfaceVariant">@color/on_surface_variant</item>
+        <item name="colorOutline">@color/outline</item>
+
+        <item name="android:windowBackground">@color/bg</item>
+        <item name="android:statusBarColor">@color/bg</item>
+        <item name="android:navigationBarColor">@color/bg</item>
+
+        <item name="tabIndicatorColor">@color/spark_red</item>
+        <item name="tabTextColor">@color/on_surface_variant</item>
+        <item name="tabSelectedTextColor">@color/on_surface</item>
+    </style>
+
+    <style name="RoundedThumb" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">12dp</item>
+    </style>
+</resources>

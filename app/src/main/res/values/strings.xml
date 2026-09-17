@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SparkTube</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_title">Choose your country / region</string>
+    <string name="onboarding_subtitle">Your home feed suggests videos based on the selected region. You can change this anytime from the Menu tab.</string>
+    <string name="search_country_hint">Search country</string>
+    <string name="continue_label">Continue</string>
+    <string name="welcome_toast">Region set to %1$s %2$s</string>
+
+    <!-- Main tabs -->
+    <string name="tab_home">Home</string>
+    <string name="tab_music">Music</string>
+    <string name="tab_library">Library</string>
+    <string name="tab_menu">Menu</string>
+    <string name="press_back_again">Press back again to exit</string>
+
+    <!-- Home -->
+    <string name="search_hint">Search videos</string>
+    <string name="trending_in">Suggested in %1$s %2$s</string>
+
+    <!-- Library -->
+    <string name="tab_history">History</string>
+    <string name="tab_favorites">Favorites</string>
+    <string name="empty_history">Videos you watch will show up here</string>
+    <string name="empty_favorites">Tap the heart while playing a video to save it here</string>
+    <string name="removed_from_history">Removed from history</string>
+    <string name="removed_from_favorites">Removed from favorites</string>
+    <string name="added_to_favorites">Added to favorites</string>
+
+    <!-- Menu -->
+    <string name="country_region">Country / Region</string>
+    <string name="change_country">Choose your country / region</string>
+    <string name="country_changed">Region changed to %1$s</string>
+    <string name="clear_history">Clear watch history</string>
+    <string name="clear_history_confirm">Remove all watched videos from history?</string>
+    <string name="history_cleared">Watch history cleared</string>
+    <string name="clear_favorites">Clear favorites</string>
+    <string name="clear_favorites_confirm">Remove all favorite videos?</string>
+    <string name="favorites_cleared">Favorites cleared</string>
+    <string name="about">About</string>
+    <string name="about_text">SparkTube is a lightweight YouTube client for Android, built with Kotlin and NewPipeExtractor. It shows country-based video suggestions and never displays live streams. This project is for educational purposes and is not affiliated with YouTube or Google.</string>
+    <string name="github">GitHub</string>
+    <string name="version_fmt">Version %1$s</string>
+
+    <!-- Player / errors -->
+    <string name="live_not_supported">Live streams are not shown in SparkTube</string>
+    <string name="error_no_results">No videos found</string>
+    <string name="error_no_streams">This video cannot be played</string>
+    <string name="retry">Retry</string>
+</resources>
