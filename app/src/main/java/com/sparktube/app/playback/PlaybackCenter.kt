@@ -1,9 +1,10 @@
 package com.sparktube.app.playback
 
+import android.content.ComponentName
 import android.content.Context
-import android.content.Intent
 import android.net.Uri
 import androidx.annotation.OptIn
+import androidx.core.content.ContextCompat
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -19,6 +20,8 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.source.MergingMediaSource
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
+import androidx.media3.session.MediaController
+import androidx.media3.session.SessionToken
 import androidx.media3.ui.PlayerView
 import com.sparktube.app.data.DownloadRecord
 import com.sparktube.app.data.LocalStore
@@ -28,6 +31,7 @@ import com.sparktube.app.data.VideoEntry
 import com.sparktube.app.data.YtRepository
 import com.sparktube.app.download.DownloadCenter
 import com.sparktube.app.net.OkHttpDownloader
+import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -171,6 +175,14 @@ object PlaybackCenter {
 
     private var prefetchJob: Job? = null
 
+    /**
+     * App-side controller connection to PlaybackService. Media3 only shows
+     * (and keeps updating) the media notification while a MediaController is
+     * connected to the MediaSessionService, so the app itself must hold one
+     * open. Created on first playback, kept for the lifetime of the process.
+     */
+    private var controllerFuture: ListenableFuture<MediaController>? = null
+
     @Volatile var mode: Mode = Mode.NONE
         private set
     @Volatile var inPip: Boolean = false
@@ -286,8 +298,32 @@ object PlaybackCenter {
     }
 
     private fun ensureService() {
-        runCatching {
-            appContext.startService(Intent(appContext, PlaybackService::class.java))
+        if (controllerFuture != null) return
+        try {
+            // A plain startService() is NOT enough: Media3 wires the session
+            // player into its notification manager inside addSession(),
+            // which only runs when a controller connects (onGetSession).
+            // Without this connection background music keeps playing in the
+            // app process but no notification - and so no shade / lockscreen
+            // controls - ever appears.
+            val token =
+                SessionToken(appContext, ComponentName(appContext, PlaybackService::class.java))
+            val future = MediaController.Builder(appContext, token).buildAsync()
+            controllerFuture = future
+            // If connecting failed for good, allow another try on the next
+            // playback instead of staying silent forever.
+            future.addListener(
+                {
+                    try {
+                        future.get()
+                    } catch (_: Exception) {
+                        controllerFuture = null
+                    }
+                },
+                ContextCompat.getMainExecutor(appContext)
+            )
+        } catch (_: Exception) {
+            // e.g. binding not allowed right now: retried on next playback.
         }
     }
 
