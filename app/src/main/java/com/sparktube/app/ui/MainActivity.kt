@@ -13,6 +13,8 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
+import com.sparktube.app.BuildConfig
 import com.sparktube.app.R
 import com.sparktube.app.databinding.ActivityMainBinding
 import com.sparktube.app.playback.PlaybackCenter
@@ -22,8 +24,11 @@ import com.sparktube.app.ui.menu.MenuFragment
 import com.sparktube.app.ui.music.MusicFragment
 import com.sparktube.app.ui.music.NowPlayingActivity
 import com.sparktube.app.ui.player.PlayerActivity
+import com.sparktube.app.util.Themes
+import com.sparktube.app.util.UpdateChecker
 import com.sparktube.app.util.Thumbs
 import coil.load
+import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
 
@@ -48,6 +53,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        Themes.apply(this)
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -63,6 +69,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         requestNotificationPermissionIfNeeded()
+        silentlyCheckForUpdate()
 
         binding.navHome.setOnClickListener { select(R.id.navHome) }
         binding.navMusic.setOnClickListener { select(R.id.navMusic) }
@@ -92,6 +99,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        // A theme / accent change while we were paused: re-style ourselves.
+        if (Themes.recreateIfNeeded(this)) return
         PlaybackCenter.addListener(playbackListener)
         bindMiniPlayer()
     }
@@ -107,6 +116,32 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         PlaybackCenter.removeListener(playbackListener)
+    }
+
+    /** Background update check on every app open; popup only when needed. */
+    private fun silentlyCheckForUpdate() {
+        if (BuildConfig.DEBUG) return
+        if (UpdateChecker.silentCheckDone) return
+        UpdateChecker.silentCheckDone = true
+        lifecycleScope.launch {
+            val release = UpdateChecker.fetchLatest() ?: return@launch
+            if (UpdateChecker.isNewer(BuildConfig.VERSION_NAME, release.tag)) {
+                val body = release.body.ifBlank {
+                    "Version ${release.tag.removePrefix("v")} is available."
+                }
+                androidx.appcompat.app.AlertDialog.Builder(this@MainActivity)
+                    .setTitle(
+                        getString(R.string.update_available_title) +
+                            " · ${release.tag.removePrefix("v")}"
+                    )
+                    .setMessage(body)
+                    .setPositiveButton(R.string.update_download) { _, _ ->
+                        UpdateChecker.openDownload(this@MainActivity, release)
+                    }
+                    .setNegativeButton(R.string.later, null)
+                    .show()
+            }
+        }
     }
 
     /** Android 13+: media notification (background playback controls) needs this. */

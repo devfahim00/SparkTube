@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/bg"
+    android:background="?attr/screenBg"
     android:clipToPadding="false"
     android:paddingBottom="110dp">
 
@@ -32,10 +32,10 @@
             android:layout_marginBottom="12dp"
             android:clickable="true"
             android:focusable="true"
-            app:cardBackgroundColor="@color/surface"
+            app:cardBackgroundColor="?attr/cardBg"
             app:cardCornerRadius="16dp"
             app:cardElevation="0dp"
-            app:rippleColor="#33F03E3E">
+            app:rippleColor="?attr/accentSoft">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -49,7 +49,7 @@
                     android:layout_height="24dp"
                     android:importantForAccessibility="no"
                     android:src="@drawable/ic_globe"
-                    app:tint="@color/spark_red" />
+                    app:tint="?attr/accent" />
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -84,15 +84,16 @@
         </com.google.android.material.card.MaterialCardView>
 
         <com.google.android.material.card.MaterialCardView
-            android:id="@+id/rowClearHistory"
+            android:id="@+id/rowSettings"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="12dp"
             android:clickable="true"
             android:focusable="true"
-            app:cardBackgroundColor="@color/surface"
+            app:cardBackgroundColor="?attr/cardBg"
             app:cardCornerRadius="16dp"
-            app:cardElevation="0dp">
+            app:cardElevation="0dp"
+            app:rippleColor="?attr/accentSoft">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -105,15 +106,15 @@
                     android:layout_width="24dp"
                     android:layout_height="24dp"
                     android:importantForAccessibility="no"
-                    android:src="@drawable/ic_history"
-                    app:tint="@color/on_surface_variant" />
+                    android:src="@drawable/ic_palette"
+                    app:tint="?attr/accent" />
 
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="16dp"
                     android:layout_weight="1"
-                    android:text="@string/clear_history"
+                    android:text="@string/menu_settings"
                     android:textColor="@color/on_surface"
                     android:textSize="15sp" />
 
@@ -121,21 +122,22 @@
                     android:layout_width="24dp"
                     android:layout_height="24dp"
                     android:importantForAccessibility="no"
-                    android:src="@drawable/ic_delete"
+                    android:src="@drawable/ic_chevron_right"
                     app:tint="@color/on_surface_variant" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
         <com.google.android.material.card.MaterialCardView
-            android:id="@+id/rowClearSearchHistory"
+            android:id="@+id/rowVideoSettings"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="12dp"
             android:clickable="true"
             android:focusable="true"
-            app:cardBackgroundColor="@color/surface"
+            app:cardBackgroundColor="?attr/cardBg"
             app:cardCornerRadius="16dp"
-            app:cardElevation="0dp">
+            app:cardElevation="0dp"
+            app:rippleColor="?attr/accentSoft">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -148,15 +150,15 @@
                     android:layout_width="24dp"
                     android:layout_height="24dp"
                     android:importantForAccessibility="no"
-                    android:src="@drawable/ic_search"
-                    app:tint="@color/on_surface_variant" />
+                    android:src="@drawable/ic_video_cam"
+                    app:tint="?attr/accent" />
 
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="16dp"
                     android:layout_weight="1"
-                    android:text="@string/clear_search_history"
+                    android:text="@string/menu_video_settings"
                     android:textColor="@color/on_surface"
                     android:textSize="15sp" />
 
@@ -164,21 +166,22 @@
                     android:layout_width="24dp"
                     android:layout_height="24dp"
                     android:importantForAccessibility="no"
-                    android:src="@drawable/ic_delete"
+                    android:src="@drawable/ic_chevron_right"
                     app:tint="@color/on_surface_variant" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
         <com.google.android.material.card.MaterialCardView
-            android:id="@+id/rowClearFavorites"
+            android:id="@+id/rowMusicSettings"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="12dp"
             android:clickable="true"
             android:focusable="true"
-            app:cardBackgroundColor="@color/surface"
+            app:cardBackgroundColor="?attr/cardBg"
             app:cardCornerRadius="16dp"
-            app:cardElevation="0dp">
+            app:cardElevation="0dp"
+            app:rippleColor="?attr/accentSoft">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -191,15 +194,15 @@
                     android:layout_width="24dp"
                     android:layout_height="24dp"
                     android:importantForAccessibility="no"
-                    android:src="@drawable/ic_favorite_border"
-                    app:tint="@color/on_surface_variant" />
+                    android:src="@drawable/ic_headset"
+                    app:tint="?attr/accent" />
 
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="16dp"
                     android:layout_weight="1"
-                    android:text="@string/clear_favorites"
+                    android:text="@string/menu_music_settings"
                     android:textColor="@color/on_surface"
                     android:textSize="15sp" />
 
@@ -207,8 +210,163 @@
                     android:layout_width="24dp"
                     android:layout_height="24dp"
                     android:importantForAccessibility="no"
+                    android:src="@drawable/ic_chevron_right"
+                    app:tint="@color/on_surface_variant" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/rowClearData"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:clickable="true"
+            android:focusable="true"
+            app:cardBackgroundColor="?attr/cardBg"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp"
+            app:rippleColor="?attr/accentSoft">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="16dp">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:importantForAccessibility="no"
                     android:src="@drawable/ic_delete"
                     app:tint="@color/on_surface_variant" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="16dp"
+                    android:layout_weight="1"
+                    android:text="@string/menu_clear_data"
+                    android:textColor="@color/on_surface"
+                    android:textSize="15sp" />
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/ic_chevron_right"
+                    app:tint="@color/on_surface_variant" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/rowImportData"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:clickable="true"
+            android:focusable="true"
+            app:cardBackgroundColor="?attr/cardBg"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp"
+            app:rippleColor="?attr/accentSoft">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="16dp">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/ic_download"
+                    app:tint="?attr/accent" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="16dp"
+                    android:layout_weight="1"
+                    android:text="@string/menu_import"
+                    android:textColor="@color/on_surface"
+                    android:textSize="15sp" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/rowExportData"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:clickable="true"
+            android:focusable="true"
+            app:cardBackgroundColor="?attr/cardBg"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp"
+            app:rippleColor="?attr/accentSoft">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="16dp">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/ic_upload"
+                    app:tint="?attr/accent" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="16dp"
+                    android:layout_weight="1"
+                    android:text="@string/menu_export"
+                    android:textColor="@color/on_surface"
+                    android:textSize="15sp" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/rowCheckUpdate"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:clickable="true"
+            android:focusable="true"
+            app:cardBackgroundColor="?attr/cardBg"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp"
+            app:rippleColor="?attr/accentSoft">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="16dp">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/ic_update"
+                    app:tint="?attr/accent" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="16dp"
+                    android:layout_weight="1"
+                    android:text="@string/menu_check_update"
+                    android:textColor="@color/on_surface"
+                    android:textSize="15sp" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
@@ -219,9 +377,10 @@
             android:layout_marginBottom="12dp"
             android:clickable="true"
             android:focusable="true"
-            app:cardBackgroundColor="@color/surface"
+            app:cardBackgroundColor="?attr/cardBg"
             app:cardCornerRadius="16dp"
-            app:cardElevation="0dp">
+            app:cardElevation="0dp"
+            app:rippleColor="?attr/accentSoft">
 
             <LinearLayout
                 android:layout_width="match_parent"

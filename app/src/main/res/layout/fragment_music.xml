@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/bg"
+    android:background="?attr/screenBg"
     android:clipToPadding="false"
     android:scrollbars="none">
 
@@ -43,6 +43,24 @@
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/search_music_hint"
                 android:src="@drawable/ic_search"
+                app:tint="@color/on_surface" />
+
+            <ImageButton
+                android:id="@+id/favoritesButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/music_favorites"
+                android:src="@drawable/ic_favorite_border"
+                app:tint="@color/on_surface" />
+
+            <ImageButton
+                android:id="@+id/downloadsButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/music_downloads"
+                android:src="@drawable/ic_download"
                 app:tint="@color/on_surface" />
         </LinearLayout>
 

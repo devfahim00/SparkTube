@@ -15,21 +15,30 @@ import com.sparktube.app.playback.AudioTrackGroup
 import com.sparktube.app.playback.QueueEntry
 import com.sparktube.app.playback.StreamCatalog
 import com.sparktube.app.playback.effectiveHeight
+import com.sparktube.app.util.Themes
 
 /**
  * Download picker: Audio only / Video only / Video + Audio, each with a
- * quality list. Video-only and Video+Audio come from the adaptive
- * (video-only) streams, so qualities above 360p are supported.
+ * quality list. On the music player only the audio section is shown.
+ * Options that were already downloaded appear marked and can't be started
+ * again.
  */
 class DownloadSheet(
     context: Context,
     private val entry: QueueEntry,
-    private val catalog: StreamCatalog
+    private val catalog: StreamCatalog,
+    private val audioOnly: Boolean = false
 ) : BottomSheetDialog(context) {
 
     private fun dp(value: Int): Int = TypedValue.applyDimension(
         TypedValue.COMPLEX_UNIT_DIP, value.toFloat(), context.resources.displayMetrics
     ).toInt()
+
+    /** Whether this exact type + quality was already downloaded successfully. */
+    private fun downloaded(type: String, quality: String): Boolean =
+        DownloadCenter.recordsFor(context, entry.url).any {
+            it.type == type && it.quality == quality && it.status == DownloadCenter.STATUS_DONE
+        }
 
     override fun show() {
         val scroll = android.widget.ScrollView(context)
@@ -53,7 +62,7 @@ class DownloadSheet(
         }
         root.addView(songTitle)
 
-        val musicOnly = !catalog.hasVideo
+        val musicOnly = audioOnly || !catalog.hasVideo
 
         // ----- Audio only -----
         val audioTrack = catalog.audioTracks.firstOrNull()
@@ -69,20 +78,30 @@ class DownloadSheet(
                     } else {
                         "Audio"
                     }
+                    val alreadyDone = downloaded(DownloadCenter.TYPE_AUDIO, kbps)
                     root.addView(
-                        optionRow(kbps + suffix(audioTrack)) {
-                            DownloadCenter.startSingle(
-                                context,
-                                entry.url,
-                                entry.title,
-                                entry.uploader,
-                                entry.thumbnailUrl,
-                                DownloadCenter.TYPE_AUDIO,
-                                kbps,
-                                stream.content,
-                                "m4a"
-                            )
-                            toastStarted()
+                        optionRow(
+                            if (alreadyDone) "$kbps • ${context.getString(R.string.download_option_done)}" else kbps + suffix(audioTrack),
+                            alreadyDone
+                        ) {
+                            if (alreadyDone) {
+                                Toast.makeText(
+                                    context, R.string.already_downloaded, Toast.LENGTH_SHORT
+                                ).show()
+                            } else {
+                                DownloadCenter.startSingle(
+                                    context,
+                                    entry.url,
+                                    entry.title,
+                                    entry.uploader,
+                                    entry.thumbnailUrl,
+                                    DownloadCenter.TYPE_AUDIO,
+                                    kbps,
+                                    stream.content,
+                                    "m4a"
+                                )
+                                toastStarted()
+                            }
                             dismiss()
                         }
                     )
@@ -104,21 +123,32 @@ class DownloadSheet(
                 } else {
                     "${v.effectiveHeight()}p (muxed, video + sound)"
                 }
-                root.addView(optionRow(label) {
-                    DownloadCenter.startSingle(
-                        context,
-                        entry.url,
-                        entry.title,
-                        entry.uploader,
-                        entry.thumbnailUrl,
-                        DownloadCenter.TYPE_VIDEO,
-                        "${v.effectiveHeight()}p",
-                        v.content,
-                        "mp4"
-                    )
-                    toastStarted()
-                    dismiss()
-                })
+                val quality = "${v.effectiveHeight()}p"
+                val alreadyDone = downloaded(DownloadCenter.TYPE_VIDEO, quality)
+                root.addView(
+                    optionRow(
+                        if (alreadyDone) "$label • ${context.getString(R.string.download_option_done)}" else label,
+                        alreadyDone
+                    ) {
+                        if (alreadyDone) {
+                            Toast.makeText(context, R.string.already_downloaded, Toast.LENGTH_SHORT).show()
+                        } else {
+                            DownloadCenter.startSingle(
+                                context,
+                                entry.url,
+                                entry.title,
+                                entry.uploader,
+                                entry.thumbnailUrl,
+                                DownloadCenter.TYPE_VIDEO,
+                                quality,
+                                v.content,
+                                "mp4"
+                            )
+                            toastStarted()
+                        }
+                        dismiss()
+                    }
+                )
             }
 
             // ----- Video + Audio -----
@@ -133,20 +163,31 @@ class DownloadSheet(
                 }
                 root.addView(note)
                 catalog.videoOnly.forEach { v ->
-                    root.addView(optionRow("${v.effectiveHeight()}p") {
-                        DownloadCenter.startPair(
-                            context,
-                            entry.url,
-                            entry.title,
-                            entry.uploader,
-                            entry.thumbnailUrl,
-                            "${v.effectiveHeight()}p",
-                            v.content,
-                            audioTrack.best!!.content
-                        )
-                        toastStarted()
-                        dismiss()
-                    })
+                    val quality = "${v.effectiveHeight()}p"
+                    val alreadyDone = downloaded(DownloadCenter.TYPE_AV, quality)
+                    root.addView(
+                        optionRow(
+                            if (alreadyDone) "$quality • ${context.getString(R.string.download_option_done)}" else quality,
+                            alreadyDone
+                        ) {
+                            if (alreadyDone) {
+                                Toast.makeText(context, R.string.already_downloaded, Toast.LENGTH_SHORT).show()
+                            } else {
+                                DownloadCenter.startPair(
+                                    context,
+                                    entry.url,
+                                    entry.title,
+                                    entry.uploader,
+                                    entry.thumbnailUrl,
+                                    quality,
+                                    v.content,
+                                    audioTrack.best!!.content
+                                )
+                                toastStarted()
+                            }
+                            dismiss()
+                        }
+                    )
                 }
             }
         }
@@ -170,15 +211,18 @@ class DownloadSheet(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
         ).also { it.topMargin = dp(top) }
 
-    private fun optionRow(label: String, onClick: () -> Unit): TextView =
+    private fun optionRow(label: String, done: Boolean = false, onClick: () -> Unit): TextView =
         TextView(context).apply {
             text = label
             textSize = 15f
             setPadding(dp(14), dp(12), dp(14), dp(12))
-            setTextColor(context.getColor(R.color.on_surface))
+            setTextColor(
+                if (done) Themes.onSurfaceVariantColor(context)
+                else Themes.onSurfaceColor(context)
+            )
             background = GradientDrawable().apply {
                 cornerRadius = dp(10).toFloat()
-                setColor(context.getColor(R.color.surface_elevated))
+                setColor(Themes.elevatedColor(context))
             }
             layoutParams = marginParams(top = 8)
             setOnClickListener { onClick() }

@@ -13,7 +13,8 @@ import com.sparktube.app.util.Thumbs
 
 /** Spotify-style song row: square art, bold title, gray artist line. */
 class MusicRowAdapter(
-    private val onClick: (VideoUiModel) -> Unit
+    private val onClick: (VideoUiModel) -> Unit,
+    private val onLongClick: ((VideoUiModel) -> Unit)? = null
 ) : ListAdapter<VideoUiModel, MusicRowAdapter.VH>(DIFF) {
 
     companion object {
@@ -42,5 +43,11 @@ class MusicRowAdapter(
         Thumbs.load(b.art, item.thumbnailUrl)
 
         b.root.setOnClickListener { onClick(item) }
+        if (onLongClick != null) {
+            b.root.setOnLongClickListener {
+                onLongClick(item)
+                true
+            }
+        }
     }
 }

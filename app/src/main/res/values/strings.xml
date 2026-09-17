@@ -126,4 +126,76 @@
     <!-- Common -->
     <string name="ok">OK</string>
     <string name="cancel">Cancel</string>
+    <string name="on">On</string>
+    <string name="off">Off</string>
+
+    <!-- Settings submenus -->
+    <string name="menu_settings">Settings</string>
+    <string name="settings_theme">Theme</string>
+    <string name="theme_auto">Auto (system)</string>
+    <string name="theme_dark">Dark</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_pitch_black">Pitch black</string>
+    <string name="settings_accent">Accent color</string>
+    <string name="accent_red">Spark red</string>
+    <string name="accent_blue">Blue</string>
+    <string name="accent_purple">Purple</string>
+    <string name="accent_green">Spotify green</string>
+    <string name="accent_orange">Orange</string>
+    <string name="accent_pink">Pink</string>
+    <string name="accent_teal">Teal</string>
+    <string name="menu_video_settings">Video settings</string>
+    <string name="settings_default_quality">Default video quality</string>
+    <string name="settings_autoplay_next_video">Autoplay next video</string>
+    <string name="menu_music_settings">Music settings</string>
+    <string name="settings_audio_quality">Audio quality</string>
+    <string name="quality_high">High (best bitrate)</string>
+    <string name="quality_medium">Medium</string>
+    <string name="quality_low">Low (data saver)</string>
+    <string name="settings_autoplay_next_song">Autoplay next song</string>
+    <string name="default_quality_note">Used when a video starts; if the selected quality is not available the next lower one is played</string>
+
+    <!-- Clear data submenu -->
+    <string name="menu_clear_data">Clear data</string>
+    <string name="clear_music_history">Clear music history</string>
+    <string name="clear_music_history_confirm">Remove all played songs from the music history?</string>
+    <string name="music_history_cleared">Music history cleared</string>
+    <string name="clear_subscriptions">Clear subscriptions</string>
+    <string name="clear_subscriptions_confirm">Unsubscribe from all channels?</string>
+    <string name="subscriptions_cleared">Subscriptions cleared</string>
+    <string name="clear_downloads">Clear downloads</string>
+    <string name="clear_downloads_confirm">Delete all downloaded files and records?</string>
+    <string name="downloads_cleared">Downloads cleared</string>
+    <string name="clear_recommendations">Reset recommendations</string>
+    <string name="clear_recommendations_confirm">Reset the on-device recommendation profile?</string>
+    <string name="recommendations_cleared">Recommendations reset</string>
+
+    <!-- Import / export -->
+    <string name="menu_import">Import data</string>
+    <string name="menu_export">Export data</string>
+    <string name="import_done">Data imported</string>
+    <string name="import_failed">Import failed</string>
+    <string name="export_done">Backup saved</string>
+    <string name="export_failed">Export failed</string>
+
+    <!-- Updates -->
+    <string name="menu_check_update">Check for update</string>
+    <string name="checking_update">Checking for updates…</string>
+    <string name="up_to_date">You are on the latest version</string>
+    <string name="update_available_title">Update available</string>
+    <string name="update_download">Download update</string>
+    <string name="later">Later</string>
+    <string name="update_check_failed">Could not check for updates</string>
+
+    <!-- Music favourites / downloads -->
+    <string name="music_favorites">Favorites</string>
+    <string name="music_downloads">Downloads</string>
+    <string name="empty_music_favorites">Songs you favorite will show up here</string>
+    <string name="empty_music_downloads">Music you download will show up here</string>
+
+    <!-- Download state on player pages -->
+    <string name="downloaded_label">Downloaded</string>
+    <string name="already_downloaded">Already downloaded — see your downloads list</string>
+    <string name="downloading_fmt">Downloading • %1$d%%</string>
+    <string name="download_option_done">Downloaded</string>
 </resources>

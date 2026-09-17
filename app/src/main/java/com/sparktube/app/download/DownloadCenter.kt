@@ -36,6 +36,65 @@ object DownloadCenter {
     private fun downloadManager(context: Context): DownloadManager =
         context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
 
+    /** All registry records belonging to one video page. */
+    fun recordsFor(context: Context, videoUrl: String): List<DownloadRecord> {
+        val id = videoIdOf(videoUrl)
+        return LocalStore.downloads(context).filter { it.videoId == id }
+    }
+
+    /** Whether the video page should show "Downloaded" instead of the option. */
+    fun isDownloaded(context: Context, videoUrl: String): Boolean =
+        recordsFor(context, videoUrl).any { it.status == STATUS_DONE }
+
+    fun hasActiveDownload(context: Context, videoUrl: String): Boolean =
+        recordsFor(context, videoUrl).any {
+            it.status == STATUS_PENDING || it.status == STATUS_RUNNING
+        }
+
+    /**
+     * Aggregate progress (0..100) across all active records of one video.
+     * Returns -1 when nothing is downloading.
+     */
+    fun downloadProgress(context: Context, videoUrl: String): Int {
+        val active = recordsFor(context, videoUrl)
+            .filter { it.status == STATUS_PENDING || it.status == STATUS_RUNNING }
+        if (active.isEmpty()) return -1
+        val dm = downloadManager(context)
+        var done = 0L
+        var total = 0L
+        active.forEach { record ->
+            val query = DownloadManager.Query().setFilterById(*record.downloadIds.toLongArray())
+            dm.query(query)?.use { cursor ->
+                while (cursor.moveToNext()) {
+                    val bytesIdx = cursor.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
+                    val totalIdx = cursor.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES)
+                    if (bytesIdx >= 0 && totalIdx >= 0) {
+                        val t = cursor.getLong(totalIdx)
+                        if (t > 0) {
+                            done += cursor.getLong(bytesIdx)
+                            total += t
+                        }
+                    }
+                }
+            }
+        }
+        if (total <= 0L) return 0
+        return ((done * 100) / total).toInt().coerceIn(0, 100)
+    }
+
+    /** Deletes every download (files + registry). */
+    fun clearAll(context: Context) {
+        LocalStore.downloads(context).forEach { record ->
+            record.downloadIds.forEach { id ->
+                runCatching { downloadManager(context).remove(id) }
+            }
+            record.filePaths.forEach { path ->
+                runCatching { File(path).delete() }
+            }
+        }
+        LocalStore.clearDownloads(context)
+    }
+
     /** Extracts a safe file-system friendly video id from a video URL. */
     fun videoIdOf(url: String): String {
         val fallback = url.replace(Regex("[^A-Za-z0-9_-]"), "").takeLast(20)

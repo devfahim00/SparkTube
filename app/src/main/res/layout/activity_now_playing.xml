@@ -208,6 +208,21 @@
             app:tint="@color/on_surface" />
     </LinearLayout>
 
+    <TextView
+        android:id="@+id/downloadStatus"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="32dp"
+        android:layout_marginTop="12dp"
+        android:layout_marginEnd="32dp"
+        android:gravity="center"
+        android:textColor="@color/on_surface_variant"
+        android:textSize="13sp"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/actionsRow" />
+
     <ProgressBar
         android:id="@+id/loading"
         android:layout_width="wrap_content"

@@ -3,7 +3,7 @@
     android:color="#66FFFFFF">
     <item>
         <shape>
-            <solid android:color="@color/subscribe_off" />
+            <solid android:color="?attr/accent" />
             <corners android:radius="18dp" />
         </shape>
     </item>

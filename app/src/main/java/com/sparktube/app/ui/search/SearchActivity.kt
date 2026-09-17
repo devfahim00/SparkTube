@@ -28,6 +28,7 @@ import com.sparktube.app.ui.common.toUiModel
 import com.sparktube.app.ui.music.NowPlayingActivity
 import com.sparktube.app.ui.player.PlayerActivity
 import com.sparktube.app.util.Formatters
+import com.sparktube.app.util.Themes
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -55,6 +56,7 @@ class SearchActivity : AppCompatActivity() {
     private var lastSuggestions: List<String> = emptyList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        Themes.apply(this)
         super.onCreate(savedInstanceState)
         binding = ActivitySearchBinding.inflate(layoutInflater)
         setContentView(binding.root)

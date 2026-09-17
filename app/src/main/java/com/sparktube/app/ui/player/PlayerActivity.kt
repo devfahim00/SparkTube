@@ -8,6 +8,8 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Rational
 import android.util.TypedValue
 import android.view.GestureDetector
@@ -29,6 +31,7 @@ import com.sparktube.app.R
 import com.sparktube.app.data.LocalStore
 import com.sparktube.app.data.YtRepository
 import com.sparktube.app.databinding.ActivityPlayerBinding
+import com.sparktube.app.download.DownloadCenter
 import com.sparktube.app.playback.PlaybackCenter
 import com.sparktube.app.playback.QueueEntry
 import com.sparktube.app.playback.StreamCatalog
@@ -38,6 +41,7 @@ import com.sparktube.app.ui.common.VideoAdapter
 import com.sparktube.app.ui.common.toQueueEntry
 import com.sparktube.app.ui.common.toUiModel
 import com.sparktube.app.util.Formatters
+import com.sparktube.app.util.Themes
 import com.sparktube.app.util.Thumbs
 import coil.load
 import kotlinx.coroutines.launch
@@ -95,7 +99,10 @@ class PlayerActivity : AppCompatActivity() {
 
     private var loadedUrl: String? = null
 
+    private val downloadHandler = Handler(Looper.getMainLooper())
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        Themes.apply(this)
         super.onCreate(savedInstanceState)
         binding = ActivityPlayerBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -112,7 +119,7 @@ class PlayerActivity : AppCompatActivity() {
 
         binding.actionFavorite.setOnClickListener { toggleFavorite() }
         binding.actionShare.setOnClickListener { shareVideo() }
-        binding.actionDownload.setOnClickListener { showDownloadSheet() }
+        binding.actionDownload.setOnClickListener { onDownloadClicked() }
         binding.actionBackground.setOnClickListener {
             PlaybackCenter.switchToAudioOnly()
             Toast.makeText(this, R.string.background_started, Toast.LENGTH_SHORT).show()
@@ -197,6 +204,7 @@ class PlayerActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         PlaybackCenter.addListener(playbackListener)
+        downloadHandler.post(downloadPoll)
         if (PlaybackCenter.hasMedia) {
             PlaybackCenter.player.playWhenReady = true
         }
@@ -218,6 +226,7 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
+        downloadHandler.removeCallbacks(downloadPoll)
         PlaybackCenter.removeListener(playbackListener)
         // Return to sensor portrait so the next video starts the standard way.
         if (requestedOrientation != ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED) {
@@ -335,6 +344,7 @@ class PlayerActivity : AppCompatActivity() {
         loadChannelInfo()
 
         updateFavoriteUi()
+        updateDownloadUi()
 
         // History + favourites may have changed, list them below.
         bindCatalog()
@@ -382,10 +392,53 @@ class PlayerActivity : AppCompatActivity() {
             if (isFav) R.drawable.ic_favorite else R.drawable.ic_favorite_border
         )
         binding.actionFavoriteIcon.setColorFilter(
-            if (isFav) getColor(R.color.spark_red) else getColor(R.color.on_surface)
+            if (isFav) Themes.accentColor(this) else getColor(R.color.on_surface)
         )
         binding.actionFavoriteLabel.text =
             getString(if (isFav) R.string.saved_short else R.string.action_favorite)
+    }
+
+    // ----- Download pill -----
+
+    private fun onDownloadClicked() {
+        val entry = PlaybackCenter.currentEntry ?: return
+        if (DownloadCenter.isDownloaded(this, entry.url)) {
+            Toast.makeText(this, R.string.already_downloaded, Toast.LENGTH_SHORT).show()
+            return
+        }
+        showDownloadSheet()
+    }
+
+    private fun updateDownloadUi() {
+        val entry = PlaybackCenter.currentEntry ?: return
+        when {
+            DownloadCenter.isDownloaded(this, entry.url) -> {
+                binding.actionDownloadIcon.setImageResource(R.drawable.ic_check)
+                binding.actionDownloadIcon.setColorFilter(getColor(R.color.music_green))
+                binding.actionDownloadLabel.text = getString(R.string.downloaded_label)
+            }
+            DownloadCenter.hasActiveDownload(this, entry.url) -> {
+                val percent = DownloadCenter.downloadProgress(this, entry.url)
+                binding.actionDownloadIcon.setImageResource(R.drawable.ic_download)
+                binding.actionDownloadIcon.setColorFilter(getColor(R.color.on_surface))
+                binding.actionDownloadLabel.text = getString(R.string.downloading_fmt, percent)
+            }
+            else -> {
+                binding.actionDownloadIcon.setImageResource(R.drawable.ic_download)
+                binding.actionDownloadIcon.setColorFilter(getColor(R.color.on_surface))
+                binding.actionDownloadLabel.text = getString(R.string.action_download)
+            }
+        }
+    }
+
+    private val downloadPoll = object : Runnable {
+        override fun run() {
+            val entry = PlaybackCenter.currentEntry
+            if (entry != null && !isFinishing) {
+                updateDownloadUi()
+            }
+            downloadHandler.postDelayed(this, 1000)
+        }
     }
 
     private fun toggleFavorite() {
@@ -472,12 +525,12 @@ class PlayerActivity : AppCompatActivity() {
             text = label
             textSize = 15f
             setPadding(dp(14), dp(12), dp(14), dp(12))
-            setTextColor(if (selected) getColor(R.color.white) else getColor(R.color.on_surface))
+            setTextColor(if (selected) getColor(R.color.white) else Themes.onSurfaceColor(this@PlayerActivity))
             background = GradientDrawable().apply {
                 cornerRadius = dp(10).toFloat()
                 setColor(
-                    if (selected) getColor(R.color.spark_red)
-                    else getColor(R.color.surface_elevated)
+                    if (selected) Themes.accentColor(this@PlayerActivity)
+                    else Themes.elevatedColor(this@PlayerActivity)
                 )
             }
             layoutParams = LinearLayout.LayoutParams(
@@ -498,7 +551,7 @@ class PlayerActivity : AppCompatActivity() {
             setPadding(dp(14), dp(14), dp(14), dp(14))
             background = GradientDrawable().apply {
                 cornerRadius = dp(12).toFloat()
-                setColor(getColor(R.color.surface_elevated))
+                setColor(Themes.elevatedColor(this@PlayerActivity))
             }
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT

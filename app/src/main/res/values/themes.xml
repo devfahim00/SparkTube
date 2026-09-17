@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.SparkTube" parent="Theme.Material3.Dark.NoActionBar">
+    <style name="Theme.SparkTube" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="colorPrimary">@color/spark_red</item>
         <item name="colorOnPrimary">@color/white</item>
-        <item name="colorPrimaryContainer">#3B1D1D</item>
-        <item name="colorOnPrimaryContainer">#FFDAD6</item>
+        <item name="colorPrimaryContainer">#FFE3E0</item>
+        <item name="colorOnPrimaryContainer">#5B1111</item>
 
         <item name="android:colorBackground">@color/bg</item>
-        <item name="colorSurface">@color/surface</item>
+        <item name="colorSurface">@color/bg</item>
         <item name="colorOnSurface">@color/on_surface</item>
         <item name="colorOnSurfaceVariant">@color/on_surface_variant</item>
         <item name="colorOutline">@color/outline</item>
@@ -15,10 +15,93 @@
         <item name="android:windowBackground">@color/bg</item>
         <item name="android:statusBarColor">@color/bg</item>
         <item name="android:navigationBarColor">@color/bg</item>
+        <item name="android:windowLightStatusBar">true</item>
 
         <item name="tabIndicatorColor">@color/spark_red</item>
         <item name="tabTextColor">@color/on_surface_variant</item>
         <item name="tabSelectedTextColor">@color/on_surface</item>
+
+        <item name="screenBg">@color/bg</item>
+        <item name="cardBg">@color/surface</item>
+        <item name="elevatedBg">@color/surface_elevated</item>
+        <item name="accent">@color/spark_red</item>
+        <item name="accentSoft">@color/chip_selected_bg</item>
+    </style>
+
+    <!-- AMOLED-friendly variant: pure black surfaces. -->
+    <style name="Theme.SparkTube.PitchBlack">
+        <item name="screenBg">#000000</item>
+        <item name="cardBg">#0A0A0A</item>
+        <item name="elevatedBg">#131318</item>
+        <item name="android:colorBackground">#000000</item>
+        <item name="colorSurface">#000000</item>
+        <item name="colorSurfaceContainer">#0A0A0A</item>
+        <item name="colorSurfaceContainerHigh">#131318</item>
+        <item name="colorSurfaceContainerHighest">#1A1A20</item>
+        <item name="colorSurfaceContainerLow">#060606</item>
+        <item name="colorSurfaceContainerLowest">#000000</item>
+        <item name="colorPrimaryContainer">#2A0A0A</item>
+        <item name="android:windowBackground">#000000</item>
+        <item name="android:statusBarColor">#000000</item>
+        <item name="android:navigationBarColor">#000000</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+
+    <!-- Accent overlays: applied on top of any theme variant. -->
+    <style name="ThemeOverlay.SparkTube.Accent" parent="">
+        <item name="accent">@color/spark_red</item>
+        <item name="accentSoft">#33F03E3E</item>
+        <item name="colorPrimary">@color/spark_red</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="tabIndicatorColor">@color/spark_red</item>
+    </style>
+
+    <style name="ThemeOverlay.SparkTube.Accent.Blue" parent="">
+        <item name="accent">#42A5F5</item>
+        <item name="accentSoft">#3342A5F5</item>
+        <item name="colorPrimary">#42A5F5</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="tabIndicatorColor">#42A5F5</item>
+    </style>
+
+    <style name="ThemeOverlay.SparkTube.Accent.Purple" parent="">
+        <item name="accent">#AB47BC</item>
+        <item name="accentSoft">#33AB47BC</item>
+        <item name="colorPrimary">#AB47BC</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="tabIndicatorColor">#AB47BC</item>
+    </style>
+
+    <style name="ThemeOverlay.SparkTube.Accent.Green" parent="">
+        <item name="accent">#1DB954</item>
+        <item name="accentSoft">#331DB954</item>
+        <item name="colorPrimary">#1DB954</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="tabIndicatorColor">#1DB954</item>
+    </style>
+
+    <style name="ThemeOverlay.SparkTube.Accent.Orange" parent="">
+        <item name="accent">#FFA726</item>
+        <item name="accentSoft">#33FFA726</item>
+        <item name="colorPrimary">#FFA726</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="tabIndicatorColor">#FFA726</item>
+    </style>
+
+    <style name="ThemeOverlay.SparkTube.Accent.Pink" parent="">
+        <item name="accent">#EC407A</item>
+        <item name="accentSoft">#33EC407A</item>
+        <item name="colorPrimary">#EC407A</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="tabIndicatorColor">#EC407A</item>
+    </style>
+
+    <style name="ThemeOverlay.SparkTube.Accent.Teal" parent="">
+        <item name="accent">#26C6DA</item>
+        <item name="accentSoft">#3326C6DA</item>
+        <item name="colorPrimary">#26C6DA</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="tabIndicatorColor">#26C6DA</item>
     </style>
 
     <style name="RoundedThumb" parent="">

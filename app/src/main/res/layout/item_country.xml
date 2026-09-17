@@ -33,5 +33,5 @@
         android:importantForAccessibility="no"
         android:src="@drawable/ic_check"
         android:visibility="invisible"
-        app:tint="@color/spark_red" />
+        app:tint="?attr/accent" />
 </LinearLayout>

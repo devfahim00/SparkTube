@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/bg">
+    android:background="?attr/screenBg">
 
     <androidx.media3.ui.PlayerView
         android:id="@+id/playerView"
@@ -126,11 +126,13 @@
                         style="@style/ActionPill">
 
                         <ImageView
+                            android:id="@+id/actionDownloadIcon"
                             style="@style/ActionPillIcon"
                             android:src="@drawable/ic_download"
                             app:tint="@color/on_surface" />
 
                         <TextView
+                            android:id="@+id/actionDownloadLabel"
                             style="@style/ActionPillText"
                             android:text="@string/action_download" />
                     </LinearLayout>

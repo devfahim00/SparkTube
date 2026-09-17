@@ -109,7 +109,7 @@ class LibraryFragment : Fragment() {
         val context = context ?: return
         when (tab) {
             TAB_HISTORY -> bindVideos(LocalStore.history(context), R.string.empty_history)
-            TAB_FAVORITES -> bindVideos(LocalStore.favorites(context), R.string.empty_favorites)
+            TAB_FAVORITES -> bindVideos(LocalStore.videoFavorites(context), R.string.empty_favorites)
             TAB_SUBSCRIPTIONS -> bindChannels()
             else -> bindDownloads()
         }
@@ -134,7 +134,8 @@ class LibraryFragment : Fragment() {
     private fun bindDownloads() {
         val context = context ?: return
         DownloadCenter.refreshStatuses(context)
-        val downloads = LocalStore.downloads(context)
+        // Music downloads live on the Music page, not here.
+        val downloads = LocalStore.videoDownloads(context)
         binding.list.adapter = downloadAdapter
         downloadAdapter.submitList(downloads)
         binding.emptyView.setText(R.string.empty_downloads)

@@ -101,6 +101,11 @@ object RecommendEngine {
     /** Cheap change counter so Home knows when the profile changed. */
     fun generation(context: Context): Int = prefs(context).getInt(KEY_GEN, 0)
 
+    /** Public bump for restores (import backup) so the home feed refreshes. */
+    fun bumpGeneration(context: Context) {
+        bump(context)
+    }
+
     private fun bump(context: Context) {
         prefs(context).edit().putInt(KEY_GEN, generation(context) + 1).apply()
     }

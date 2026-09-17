@@ -20,6 +20,7 @@ import com.sparktube.app.ui.common.VideoAdapter
 import com.sparktube.app.ui.player.PlayerActivity
 import com.sparktube.app.util.Formatters
 import com.sparktube.app.util.Thumbs
+import com.sparktube.app.util.Themes
 import kotlinx.coroutines.launch
 import org.schabi.newpipe.extractor.Page
 
@@ -38,6 +39,7 @@ class ChannelActivity : AppCompatActivity() {
     private var channelName: String = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        Themes.apply(this)
         super.onCreate(savedInstanceState)
         binding = ActivityChannelBinding.inflate(layoutInflater)
         setContentView(binding.root)

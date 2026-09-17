@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Screen background (page background). -->
+    <attr name="screenBg" format="color" />
+    <!-- Card / row background. -->
+    <attr name="cardBg" format="color" />
+    <!-- Slightly elevated surface (option rows, search bar). -->
+    <attr name="elevatedBg" format="color" />
+    <!-- The user-selectable accent color. -->
+    <attr name="accent" format="color" />
+    <!-- Accent at ~20% alpha (selected chip fill). -->
+    <attr name="accentSoft" format="color" />
+</resources>

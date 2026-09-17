@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/bg"
+    android:background="?attr/screenBg"
     android:orientation="vertical">
 
     <LinearLayout
@@ -41,7 +41,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
             android:text="@string/onboarding_title"
-            android:textColor="@color/spark_red"
+            android:textColor="?attr/accent"
             android:textSize="16sp"
             android:textStyle="bold" />
 

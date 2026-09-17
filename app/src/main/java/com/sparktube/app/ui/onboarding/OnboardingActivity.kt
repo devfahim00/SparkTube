@@ -14,6 +14,7 @@ import com.sparktube.app.data.Country
 import com.sparktube.app.data.YtRepository
 import com.sparktube.app.databinding.ActivityOnboardingBinding
 import com.sparktube.app.ui.MainActivity
+import com.sparktube.app.util.Themes
 import kotlinx.coroutines.launch
 import androidx.lifecycle.lifecycleScope
 
@@ -27,6 +28,7 @@ class OnboardingActivity : AppCompatActivity() {
     private var selected: Country? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        Themes.apply(this)
         super.onCreate(savedInstanceState)
         binding = ActivityOnboardingBinding.inflate(layoutInflater)
         setContentView(binding.root)

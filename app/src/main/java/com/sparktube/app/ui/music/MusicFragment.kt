@@ -58,6 +58,12 @@ class MusicFragment : Fragment() {
         binding.searchButton.setOnClickListener {
             startActivity(SearchActivity.intent(requireContext(), music = true))
         }
+        binding.favoritesButton.setOnClickListener {
+            MusicListActivity.start(requireContext(), favourites = true)
+        }
+        binding.downloadsButton.setOnClickListener {
+            MusicListActivity.start(requireContext(), favourites = false)
+        }
 
         buildGenreTiles()
         load()

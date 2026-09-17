@@ -31,6 +31,7 @@ import com.sparktube.app.data.VideoEntry
 import com.sparktube.app.data.YtRepository
 import com.sparktube.app.download.DownloadCenter
 import com.sparktube.app.net.OkHttpDownloader
+import com.sparktube.app.util.AppPrefs
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -259,7 +260,9 @@ object PlaybackCenter {
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {
-            if (playbackState == Player.STATE_ENDED && mode == Mode.VIDEO) {
+            if (playbackState == Player.STATE_ENDED && mode == Mode.VIDEO &&
+                AppPrefs.videoAutoplayNext
+            ) {
                 advance()
             }
         }
@@ -349,38 +352,57 @@ object PlaybackCenter {
     }
 
     /**
-     * Starts a song. The first item is resolved up front (so playback starts
-     * as soon as possible), then the whole queue becomes a real player
-     * playlist whose remaining items are resolved on demand; upcoming audio
-     * URLs are prefetched in the background. When radio is true the queue
-     * keeps growing with related songs.
+     * Starts a song (optionally as an endless radio of related tracks).
      */
     fun playMusic(entry: QueueEntry, radio: Boolean) {
+        playMusicQueue(listOf(entry), 0, allowRadio = radio)
+    }
+
+    /**
+     * Starts a fixed music playlist (favorites, downloads, …): exactly
+     * these songs play one after another — nothing else is ever mixed in.
+     */
+    fun playMusicQueue(entries: List<QueueEntry>, startIndex: Int = 0, allowRadio: Boolean = false) {
         initFromApp()
+        if (entries.isEmpty()) return
+        val start = startIndex.coerceIn(0, entries.size - 1)
+        // The player playlist is the tapped song + everything after it, so
+        // player indexes and queue indexes always match.
+        val playlist = if (start == 0) entries else entries.drop(start)
         stopPlayerNow()
         mode = Mode.AUDIO
-        radioMode = radio
+        radioMode = allowRadio
         audioOnlyMode = false
         pendingMusic.clear()
-        setQueue(listOf(entry), 0)
+        setQueue(playlist, 0)
         resolveJob?.cancel()
         notify { it.onResolvingChanged(true) }
         resolveJob = scope.launch {
             try {
-                val info = YtRepository.streamInfo(entry.url)
-                if (LiveFilter.isLive(info)) {
-                    throw IllegalArgumentException("LIVE_CONTENT")
+                val first = currentEntry ?: return@launch
+                // Downloaded files play straight from disk — no resolving.
+                if (first.url.startsWith("file://")) {
+                    catalog = null
+                    startMusicPlaylistWithRelated()
+                    ensureService()
+                    notify { it.onItemChanged(currentEntry) }
+                    notify { it.onCatalogReady() }
+                } else {
+                    val info = YtRepository.streamInfo(first.url)
+                    if (LiveFilter.isLive(info)) {
+                        throw IllegalArgumentException("LIVE_CONTENT")
+                    }
+                    catalog = StreamCatalog(info)
+                    LocalStore.addToMusicHistory(appContext, first.toVideoEntry())
+                    RecommendEngine.logPlay(appContext, first.url, first.title, first.uploader)
+                    // Prime the audio URL cache: the first song then starts instantly.
+                    primeMusicUri(first)
+                    startMusicPlaylistWithRelated()
+                    ensureService()
+                    notify { it.onItemChanged(currentEntry) }
+                    notify { it.onCatalogReady() }
+                    prefetchAhead()
                 }
-                catalog = StreamCatalog(info)
-                LocalStore.addToHistory(appContext, entry.toVideoEntry())
-                RecommendEngine.logPlay(appContext, entry.url, entry.title, entry.uploader)
-                // Prime the audio URL cache: the first song then starts instantly.
-                primeMusicUri(entry)
-                startMusicPlaylistWithRelated()
-                ensureService()
-                notify { it.onItemChanged(currentEntry) }
-                notify { it.onCatalogReady() }
-                prefetchAhead()
             } catch (e: Exception) {
                 notify { it.onError(if (e.message.isNullOrBlank()) e.javaClass.simpleName else e.message!!) }
             } finally {
@@ -410,6 +432,11 @@ object PlaybackCenter {
     fun setSpeed(speed: Float) {
         playbackSpeed = speed
         playerRef?.setPlaybackSpeed(speed)
+    }
+
+    /** Music settings: pause between songs instead of auto-advancing. */
+    fun applyMusicAutoplay() {
+        playerRef?.setPauseAtEndOfMediaItems(!AppPrefs.musicAutoplayNext)
     }
 
     fun next() {
@@ -616,7 +643,7 @@ object PlaybackCenter {
                     throw IllegalArgumentException("LIVE_CONTENT")
                 }
                 catalog = StreamCatalog(info)
-                LocalStore.addToHistory(appContext, entry.toVideoEntry())
+                LocalStore.addToMusicHistory(appContext, entry.toVideoEntry())
                 RecommendEngine.logPlay(appContext, entry.url, entry.title, entry.uploader)
                 // Share the resolved URL with the loading thread (if it has
                 // not found it already) so a re-visit starts instantly.
@@ -751,7 +778,11 @@ object PlaybackCenter {
 
         // Music / audio-only background mode: pick the best audio stream.
         if (mode == Mode.AUDIO || audioOnlyMode) {
-            val audio = audioForSelection(c) ?: c.audioTracks.firstOrNull()?.best
+            val audio = if (mode == Mode.AUDIO) {
+                pickMusicAudio(c)
+            } else {
+                audioForSelection(c) ?: c.audioTracks.firstOrNull()?.best
+            }
             if (audio == null && c.muxed.isNotEmpty()) {
                 return progressiveSource(MediaItem.Builder().setUri(audioUri(c.muxed.first())).setMediaMetadata(metadata).build())
             }
@@ -787,7 +818,19 @@ object PlaybackCenter {
         if (usedFallback && c.muxed.isNotEmpty()) return c.muxed.first()
         val height = selectedHeight
         return when {
-            height == null -> c.videoOnly.firstOrNull() ?: c.muxed.firstOrNull()
+            height == null -> {
+                val default = AppPrefs.defaultVideoHeight
+                if (default > 0) {
+                    // User default: the chosen quality, or the best one below
+                    // it when the exact height is not available.
+                    val candidates = c.videoOnly.ifEmpty { c.muxed }
+                    candidates.filter { it.effectiveHeight() <= default }
+                        .maxByOrNull { it.effectiveHeight() }
+                        ?: candidates.minByOrNull { it.effectiveHeight() }
+                } else {
+                    c.videoOnly.firstOrNull() ?: c.muxed.firstOrNull()
+                }
+            }
             c.videoOnly.any { it.effectiveHeight() == height } ->
                 c.videoOnly.first { it.effectiveHeight() == height }
             c.muxed.any { it.effectiveHeight() == height } ->
@@ -802,6 +845,18 @@ object PlaybackCenter {
             selected != null -> c.audioTracks.firstOrNull { it.id == selected }?.best
                 ?: c.audioTracks.firstOrNull()?.best
             else -> c.audioTracks.firstOrNull()?.best
+        }
+    }
+
+    /** Picks the default audio track's stream at the user's music quality tier. */
+    private fun pickMusicAudio(c: StreamCatalog): AudioStream? {
+        val group = c.audioTracks.firstOrNull() ?: return null
+        val streams = group.streams.filter { it.isUrl && it.averageBitrate > 0 }
+        if (streams.isEmpty()) return group.best
+        return when (AppPrefs.musicAudioQuality) {
+            AppPrefs.AUDIO_QUALITY_LOW -> streams.last()
+            AppPrefs.AUDIO_QUALITY_MEDIUM -> streams[streams.size / 2]
+            else -> streams.first()
         }
     }
 
@@ -835,16 +890,32 @@ object PlaybackCenter {
                     }
                 }
             notify { it.onQueueChanged() }
+        } else {
+            // Fixed playlist (favorites / downloads): queue the whole list.
+            queue.drop(1).forEach { items.add(musicMediaItem(it)) }
         }
         player.run {
             setMediaItems(items, 0, 0L)
             prepare()
             playWhenReady = true
             setPlaybackSpeed(playbackSpeed)
+            applyMusicAutoplay()
         }
     }
 
     private fun musicMediaItem(entry: QueueEntry): MediaItem {
+        val metadata = MediaMetadata.Builder()
+            .setTitle(entry.title)
+            .setArtist(entry.uploader)
+            .setArtworkUri(entry.thumbnailUrl.takeIf { it.isNotBlank() }?.let(Uri::parse))
+            .build()
+        // Downloaded songs play straight from disk.
+        if (entry.url.startsWith("file://")) {
+            return MediaItem.Builder()
+                .setUri(Uri.parse(entry.url))
+                .setMediaMetadata(metadata)
+                .build()
+        }
         val key = "music-${musicItemId.incrementAndGet()}"
         // Bounded like musicUriCache: entries now live for the whole session
         // (see resolveMusicUri) instead of being removed after first use, so
@@ -853,13 +924,7 @@ object PlaybackCenter {
         pendingMusic[key] = entry
         return MediaItem.Builder()
             .setUri("sparktube://queue/$key")
-            .setMediaMetadata(
-                MediaMetadata.Builder()
-                    .setTitle(entry.title)
-                    .setArtist(entry.uploader)
-                    .setArtworkUri(entry.thumbnailUrl.takeIf { it.isNotBlank() }?.let(Uri::parse))
-                    .build()
-            )
+            .setMediaMetadata(metadata)
             .build()
     }
 
@@ -883,7 +948,7 @@ object PlaybackCenter {
         if (LiveFilter.isLive(info)) {
             throw IOException("LIVE_CONTENT")
         }
-        val audio = StreamCatalog(info).audioTracks.firstOrNull()?.best
+        val audio = pickMusicAudio(StreamCatalog(info))
             ?: throw IOException("No audio stream found")
         return cacheMusicUri(entry.url, audio.content)
     }
@@ -896,9 +961,9 @@ object PlaybackCenter {
         return uri
     }
 
-    /** Stores the best audio URL of the current catalog for [entry]. */
+    /** Stores the selected-quality audio URL of the current catalog for [entry]. */
     private fun primeMusicUri(entry: QueueEntry) {
-        val best = catalog?.audioTracks?.firstOrNull()?.best ?: return
+        val best = catalog?.let { pickMusicAudio(it) } ?: return
         cacheMusicUri(entry.url, best.content)
     }
 
@@ -908,14 +973,14 @@ object PlaybackCenter {
         val idx = playerRef?.currentMediaItemIndex ?: queueIndex
         val targets = ((idx + 1) until minOf(idx + 3, queue.size))
             .mapNotNull { queue.getOrNull(it) }
-            .filter { !musicUriCache.containsKey(it.url) }
+            .filter { !it.url.startsWith("file://") && !musicUriCache.containsKey(it.url) }
         if (targets.isEmpty()) return
         prefetchJob?.cancel()
         prefetchJob = scope.launch(Dispatchers.IO) {
             targets.forEach { entry ->
                 runCatching {
                     val info = YtRepository.streamInfo(entry.url)
-                    StreamCatalog(info).audioTracks.firstOrNull()?.best?.let { audio ->
+                    pickMusicAudio(StreamCatalog(info))?.let { audio ->
                         cacheMusicUri(entry.url, audio.content)
                     }
                 }
@@ -977,5 +1042,6 @@ fun QueueEntry.toVideoEntry(): VideoEntry = VideoEntry(
     title = title,
     uploader = uploader,
     thumbnailUrl = thumbnailUrl,
-    durationSec = durationSec
+    durationSec = durationSec,
+    isMusic = isMusic
 )

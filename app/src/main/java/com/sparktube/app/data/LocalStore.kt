@@ -9,7 +9,9 @@ data class VideoEntry(
     val title: String,
     val uploader: String,
     val thumbnailUrl: String,
-    val durationSec: Long
+    val durationSec: Long,
+    /** True when this entry was favorited from the music player. */
+    val isMusic: Boolean = false
 )
 
 data class ChannelEntry(
@@ -42,6 +44,7 @@ data class DownloadRecord(
 object LocalStore {
 
     private const val KEY_HISTORY = "history_json"
+    private const val KEY_MUSIC_HISTORY = "music_history_json"
     private const val KEY_FAVORITES = "favorites_json"
     private const val KEY_SUBSCRIPTIONS = "subscriptions_json"
     private const val KEY_DOWNLOADS = "downloads_json"
@@ -81,6 +84,27 @@ object LocalStore {
         prefs(context).edit().remove(KEY_HISTORY).apply()
     }
 
+    // ----- Music history -----
+
+    /** Recently played songs (kept separate from the video watch history). */
+    fun musicHistory(context: Context): List<VideoEntry> =
+        read(prefs(context), KEY_MUSIC_HISTORY)
+
+    fun addToMusicHistory(context: Context, entry: VideoEntry) {
+        val ctx = context.applicationContext
+        val list = musicHistory(ctx).toMutableList()
+        list.removeAll { it.url == entry.url }
+        list.add(0, entry)
+        while (list.size > MAX_HISTORY) {
+            list.removeAt(list.size - 1)
+        }
+        write(prefs(ctx), KEY_MUSIC_HISTORY, list)
+    }
+
+    fun clearMusicHistory(context: Context) {
+        prefs(context).edit().remove(KEY_MUSIC_HISTORY).apply()
+    }
+
     // ----- Search history -----
 
     /** Recent search queries, newest first (case preserved, deduplicated). */
@@ -116,6 +140,14 @@ object LocalStore {
     fun favorites(context: Context): List<VideoEntry> =
         read(prefs(context), KEY_FAVORITES)
 
+    /** Favorites saved from the music player. */
+    fun musicFavorites(context: Context): List<VideoEntry> =
+        favorites(context).filter { it.isMusic }
+
+    /** Favorites saved from the video watch page. */
+    fun videoFavorites(context: Context): List<VideoEntry> =
+        favorites(context).filter { !it.isMusic }
+
     fun isFavorite(context: Context, url: String): Boolean =
         favorites(context).any { it.url == url }
 
@@ -139,6 +171,14 @@ object LocalStore {
 
     fun clearFavorites(context: Context) {
         prefs(context).edit().remove(KEY_FAVORITES).apply()
+    }
+
+    fun clearSubscriptions(context: Context) {
+        prefs(context).edit().remove(KEY_SUBSCRIPTIONS).apply()
+    }
+
+    fun clearSearchesOnly(context: Context) {
+        prefs(context).edit().remove(KEY_SEARCHES).apply()
     }
 
     // ----- Subscriptions -----
@@ -169,6 +209,14 @@ object LocalStore {
     fun downloads(context: Context): List<DownloadRecord> =
         readDownloads(prefs(context))
 
+    /** Video / AV downloads shown in Library > Downloads. */
+    fun videoDownloads(context: Context): List<DownloadRecord> =
+        downloads(context).filter { it.type != "AUDIO" }
+
+    /** Music (audio) downloads shown on the Music page. */
+    fun musicDownloads(context: Context): List<DownloadRecord> =
+        downloads(context).filter { it.type == "AUDIO" }
+
     fun addDownload(context: Context, record: DownloadRecord) {
         val ctx = context.applicationContext
         val list = downloads(ctx).toMutableList()
@@ -195,6 +243,10 @@ object LocalStore {
         writeDownloads(prefs(ctx), list)
     }
 
+    fun clearDownloads(context: Context) {
+        prefs(context).edit().remove(KEY_DOWNLOADS).apply()
+    }
+
     // ----- JSON helpers -----
 
     private fun read(sp: android.content.SharedPreferences, key: String): List<VideoEntry> {
@@ -208,7 +260,8 @@ object LocalStore {
                     title = o.optString("title"),
                     uploader = o.optString("uploader"),
                     thumbnailUrl = o.optString("thumb"),
-                    durationSec = o.optLong("duration")
+                    durationSec = o.optLong("duration"),
+                    isMusic = o.optBoolean("music", false)
                 )
             }
         } catch (e: Exception) {
@@ -226,6 +279,7 @@ object LocalStore {
                     .put("uploader", entry.uploader)
                     .put("thumb", entry.thumbnailUrl)
                     .put("duration", entry.durationSec)
+                    .put("music", entry.isMusic)
             )
         }
         sp.edit().putString(key, arr.toString()).apply()

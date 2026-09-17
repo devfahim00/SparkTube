@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.SparkTube" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/spark_red</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorPrimaryContainer">#3B1D1D</item>
+        <item name="colorOnPrimaryContainer">#FFDAD6</item>
+
+        <item name="android:colorBackground">@color/bg</item>
+        <item name="colorSurface">@color/bg</item>
+        <item name="colorOnSurface">@color/on_surface</item>
+        <item name="colorOnSurfaceVariant">@color/on_surface_variant</item>
+        <item name="colorOutline">@color/outline</item>
+
+        <item name="android:windowBackground">@color/bg</item>
+        <item name="android:statusBarColor">@color/bg</item>
+        <item name="android:navigationBarColor">@color/bg</item>
+        <item name="android:windowLightStatusBar">false</item>
+
+        <item name="tabIndicatorColor">@color/spark_red</item>
+        <item name="tabTextColor">@color/on_surface_variant</item>
+        <item name="tabSelectedTextColor">@color/on_surface</item>
+
+        <item name="screenBg">@color/bg</item>
+        <item name="cardBg">@color/surface</item>
+        <item name="elevatedBg">@color/surface_elevated</item>
+        <item name="accent">@color/spark_red</item>
+        <item name="accentSoft">@color/chip_selected_bg</item>
+    </style>
+
+    <!-- AMOLED-friendly variant: pure black surfaces. -->
+    <style name="Theme.SparkTube.PitchBlack">
+        <item name="screenBg">#000000</item>
+        <item name="cardBg">#0A0A0A</item>
+        <item name="elevatedBg">#131318</item>
+        <item name="android:colorBackground">#000000</item>
+        <item name="colorSurface">#000000</item>
+        <item name="colorSurfaceContainer">#0A0A0A</item>
+        <item name="colorSurfaceContainerHigh">#131318</item>
+        <item name="colorSurfaceContainerHighest">#1A1A20</item>
+        <item name="colorSurfaceContainerLow">#060606</item>
+        <item name="colorSurfaceContainerLowest">#000000</item>
+        <item name="colorPrimaryContainer">#2A0A0A</item>
+        <item name="android:windowBackground">#000000</item>
+        <item name="android:statusBarColor">#000000</item>
+        <item name="android:navigationBarColor">#000000</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>

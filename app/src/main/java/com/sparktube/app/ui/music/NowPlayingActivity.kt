@@ -17,9 +17,11 @@ import coil.load
 import com.sparktube.app.R
 import com.sparktube.app.data.LocalStore
 import com.sparktube.app.databinding.ActivityNowPlayingBinding
+import com.sparktube.app.download.DownloadCenter
 import com.sparktube.app.playback.PlaybackCenter
 import com.sparktube.app.playback.QueueEntry
 import com.sparktube.app.ui.player.DownloadSheet
+import com.sparktube.app.util.Themes
 import com.sparktube.app.util.Thumbs
 import java.util.Locale
 import java.util.concurrent.TimeUnit
@@ -50,11 +52,13 @@ class NowPlayingActivity : AppCompatActivity() {
     private val progressRunnable = object : Runnable {
         override fun run() {
             updateProgress()
+            updateDownloadState()
             handler.postDelayed(this, 500)
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        Themes.apply(this)
         super.onCreate(savedInstanceState)
         binding = ActivityNowPlayingBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -81,7 +85,7 @@ class NowPlayingActivity : AppCompatActivity() {
             ).show()
         }
         binding.radioButton.setOnClickListener { restartRadio() }
-        binding.downloadButton.setOnClickListener { showDownloadSheet() }
+        binding.downloadButton.setOnClickListener { onDownloadClicked() }
 
         binding.seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
@@ -124,6 +128,7 @@ class NowPlayingActivity : AppCompatActivity() {
         bindPlayButton()
         bindFavorite()
         updateProgress()
+        updateDownloadState()
     }
 
     private fun bindPlayButton() {
@@ -182,13 +187,50 @@ class NowPlayingActivity : AppCompatActivity() {
         Toast.makeText(this, R.string.radio_started, Toast.LENGTH_SHORT).show()
     }
 
+    // ----- Download state -----
+
+    private fun onDownloadClicked() {
+        val entry = PlaybackCenter.currentEntry ?: return
+        if (DownloadCenter.isDownloaded(this, entry.url)) {
+            Toast.makeText(this, R.string.already_downloaded, Toast.LENGTH_SHORT).show()
+            return
+        }
+        showDownloadSheet()
+    }
+
+    /** Icon + status line for downloaded / downloading states. */
+    private fun updateDownloadState() {
+        val entry = PlaybackCenter.currentEntry ?: return
+        if (isFinishing) return
+        when {
+            DownloadCenter.isDownloaded(this, entry.url) -> {
+                binding.downloadButton.setImageResource(R.drawable.ic_check)
+                binding.downloadButton.setColorFilter(getColor(R.color.music_green))
+                binding.downloadStatus.isVisible = false
+            }
+            DownloadCenter.hasActiveDownload(this, entry.url) -> {
+                binding.downloadButton.setImageResource(R.drawable.ic_download)
+                binding.downloadButton.setColorFilter(getColor(R.color.on_surface))
+                val percent = DownloadCenter.downloadProgress(this, entry.url)
+                binding.downloadStatus.text = getString(R.string.downloading_fmt, percent)
+                binding.downloadStatus.isVisible = true
+            }
+            else -> {
+                binding.downloadButton.setImageResource(R.drawable.ic_download)
+                binding.downloadButton.setColorFilter(getColor(R.color.on_surface))
+                binding.downloadStatus.isVisible = false
+            }
+        }
+    }
+
     private fun showDownloadSheet() {
         val entry = PlaybackCenter.currentEntry ?: return
         val catalog = PlaybackCenter.catalog ?: run {
             Toast.makeText(this, R.string.error_no_streams, Toast.LENGTH_SHORT).show()
             return
         }
-        DownloadSheet(this, entry, catalog).show()
+        // This is the music player: only the audio section applies.
+        DownloadSheet(this, entry, catalog, audioOnly = true).show()
     }
 
     private fun formatTime(ms: Long): String {
