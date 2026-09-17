@@ -22,6 +22,7 @@ import com.sparktube.app.ui.menu.MenuFragment
 import com.sparktube.app.ui.music.MusicFragment
 import com.sparktube.app.ui.music.NowPlayingActivity
 import com.sparktube.app.ui.player.PlayerActivity
+import com.sparktube.app.util.Thumbs
 import coil.load
 
 class MainActivity : AppCompatActivity() {
@@ -161,10 +162,7 @@ class MainActivity : AppCompatActivity() {
         binding.miniTitle.text = entry.title
         binding.miniTitle.isSelected = true
         binding.miniSubtitle.text = entry.uploader
-        binding.miniThumb.load(entry.thumbnailUrl) {
-            placeholder(android.graphics.drawable.ColorDrawable(getColor(R.color.thumbnail_placeholder)))
-            error(android.graphics.drawable.ColorDrawable(getColor(R.color.thumbnail_placeholder)))
-        }
+        Thumbs.load(binding.miniThumb, entry.thumbnailUrl)
         binding.miniPlayPause.setImageResource(
             if (PlaybackCenter.isPlaying) R.drawable.ic_pause else R.drawable.ic_play_arrow
         )

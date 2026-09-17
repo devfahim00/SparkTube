@@ -16,6 +16,7 @@ import com.sparktube.app.databinding.ActivityNowPlayingBinding
 import com.sparktube.app.playback.PlaybackCenter
 import com.sparktube.app.playback.QueueEntry
 import com.sparktube.app.ui.player.DownloadSheet
+import com.sparktube.app.util.Thumbs
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 
@@ -110,11 +111,7 @@ class NowPlayingActivity : AppCompatActivity() {
         val entry = PlaybackCenter.currentEntry ?: run { finish(); return }
         binding.title.text = entry.title
         binding.subtitle.text = entry.uploader
-        binding.art.load(entry.thumbnailUrl) {
-            crossfade(true)
-            placeholder(android.graphics.drawable.ColorDrawable(getColor(R.color.thumbnail_placeholder)))
-            error(android.graphics.drawable.ColorDrawable(getColor(R.color.thumbnail_placeholder)))
-        }
+        Thumbs.load(binding.art, entry.thumbnailUrl)
         binding.playingLabel.isVisible = true
         bindPlayButton()
         bindFavorite()

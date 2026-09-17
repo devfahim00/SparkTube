@@ -110,6 +110,13 @@
     <!-- Channel -->
     <string name="channel_videos">Videos</string>
 
+    <string name="action_fullscreen">Fullscreen</string>
+    <string name="video_settings">Video settings</string>
+    <string name="settings_quality_section">Quality</string>
+    <string name="settings_speed_section">Playback speed</string>
+    <string name="settings_audio_track_section">Audio track</string>
+    <string name="quality_auto">Auto (best available)</string>
+
     <!-- Common -->
     <string name="ok">OK</string>
     <string name="cancel">Cancel</string>

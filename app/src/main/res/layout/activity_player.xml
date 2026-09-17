@@ -32,6 +32,17 @@
         app:layout_constraintTop_toTopOf="parent"
         app:tint="@color/white" />
 
+    <ImageButton
+        android:id="@+id/fullscreenButton"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:background="@drawable/bg_icon_scrim"
+        android:contentDescription="@string/action_fullscreen"
+        android:src="@drawable/ic_expand"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:tint="@color/white" />
+
     <androidx.core.widget.NestedScrollView
         android:id="@+id/scrollArea"
         android:layout_width="0dp"
@@ -150,64 +161,6 @@
                         <TextView
                             style="@style/ActionPillText"
                             android:text="@string/action_pip" />
-                    </LinearLayout>
-                </LinearLayout>
-            </HorizontalScrollView>
-
-            <HorizontalScrollView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:scrollbars="none">
-
-                <LinearLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal">
-
-                    <LinearLayout
-                        android:id="@+id/actionQuality"
-                        style="@style/ActionPill">
-
-                        <ImageView
-                            style="@style/ActionPillIcon"
-                            android:src="@drawable/ic_tune"
-                            app:tint="@color/on_surface" />
-
-                        <TextView
-                            android:id="@+id/qualityValue"
-                            style="@style/ActionPillText"
-                            android:text="@string/action_quality" />
-                    </LinearLayout>
-
-                    <LinearLayout
-                        android:id="@+id/actionSpeed"
-                        style="@style/ActionPill">
-
-                        <ImageView
-                            style="@style/ActionPillIcon"
-                            android:src="@drawable/ic_speed"
-                            app:tint="@color/on_surface" />
-
-                        <TextView
-                            android:id="@+id/speedValue"
-                            style="@style/ActionPillText"
-                            android:text="@string/action_speed" />
-                    </LinearLayout>
-
-                    <LinearLayout
-                        android:id="@+id/actionAudioTrack"
-                        style="@style/ActionPill">
-
-                        <ImageView
-                            style="@style/ActionPillIcon"
-                            android:src="@drawable/ic_audiotrack"
-                            app:tint="@color/on_surface" />
-
-                        <TextView
-                            android:id="@+id/audioTrackValue"
-                            style="@style/ActionPillText"
-                            android:text="@string/action_audio_track" />
                     </LinearLayout>
                 </LinearLayout>
             </HorizontalScrollView>

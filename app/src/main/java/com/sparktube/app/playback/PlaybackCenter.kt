@@ -13,17 +13,18 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.source.MergingMediaSource
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.ui.PlayerView
+import com.sparktube.app.data.DownloadRecord
 import com.sparktube.app.data.LocalStore
 import com.sparktube.app.data.LiveFilter
 import com.sparktube.app.data.VideoEntry
 import com.sparktube.app.data.YtRepository
 import com.sparktube.app.download.DownloadCenter
-import com.sparktube.app.data.DownloadRecord
 import com.sparktube.app.net.OkHttpDownloader
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -31,12 +32,20 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import org.schabi.newpipe.extractor.stream.AudioStream
 import org.schabi.newpipe.extractor.stream.AudioTrackType
 import org.schabi.newpipe.extractor.stream.StreamInfo
 import org.schabi.newpipe.extractor.stream.StreamInfoItem
 import org.schabi.newpipe.extractor.stream.VideoStream
 import java.io.File
+import java.io.IOException
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicLong
+
+/** Best-effort height: itag height or parsed from the resolution string ("1080p60"). */
+fun VideoStream.effectiveHeight(): Int =
+    if (height > 0) height else StreamCatalog.resolutionHeight(resolution)
 
 /** One item in the play queue (resolved lazily when it starts playing). */
 data class QueueEntry(
@@ -69,16 +78,16 @@ class StreamCatalog(info: StreamInfo) {
     val durationSec: Long = info.duration
 
     /** Video-only adaptive streams (higher qualities), distinct heights, best first. */
-    val videoOnly: List<VideoStream> = info.videoStreams
-        .filter { it.isUrl && it.isVideoOnly && it.height > 0 }
-        .distinctBy { it.height }
-        .sortedByDescending { it.height }
+    val videoOnly: List<VideoStream> = info.videoOnlyStreams
+        .filter { it.isUrl && it.effectiveHeight() > 0 }
+        .distinctBy { it.effectiveHeight() }
+        .sortedByDescending { it.effectiveHeight() }
 
     /** Progressive (muxed) streams, fallback only. */
     val muxed: List<VideoStream> = info.videoStreams
-        .filter { it.isUrl && !it.isVideoOnly && it.height > 0 }
-        .distinctBy { it.height }
-        .sortedByDescending { it.height }
+        .filter { it.isUrl && it.effectiveHeight() > 0 }
+        .distinctBy { it.effectiveHeight() }
+        .sortedByDescending { it.effectiveHeight() }
 
     /** Audio streams grouped into dubbing languages. */
     val audioTracks: List<AudioTrackGroup> = info.audioStreams
@@ -101,11 +110,16 @@ class StreamCatalog(info: StreamInfo) {
 
     val hasVideo: Boolean get() = videoOnly.isNotEmpty() || muxed.isNotEmpty()
 
-    fun qualityLabel(v: VideoStream, videoOnlyFirst: Boolean): String {
-        val height = v.height
+    companion object {
+        fun resolutionHeight(resolution: String): Int =
+            Regex("(\\d{3,4})").find(resolution)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+    }
+
+    fun qualityLabel(v: VideoStream): String {
+        val height = v.effectiveHeight()
         val fps = if (v.fps > 30 && v.fps < 100) "${v.fps}fps" else ""
-        val tag = if (videoOnlyFirst) " (video only)" else ""
-        return listOf(height.toString() + "p", fps).filter { it.isNotBlank() }.joinToString("") + tag
+        val tag = if (v.isVideoOnly) " (video only)" else ""
+        return listOf(height.toString() + "p", fps).filter { it.isNotBlank() }.joinToString(" ") + tag
     }
 }
 
@@ -113,6 +127,10 @@ class StreamCatalog(info: StreamInfo) {
  * App-wide playback engine. Owns the single ExoPlayer instance that the
  * watch page, the mini player, the music screen and the media notification
  * all attach to, so playback survives screen changes and app close.
+ *
+ * Video mode uses a single merged source. Music mode builds a real
+ * playlist whose items are resolved on demand, so the media notification
+ * gets native previous / next / seek controls.
  */
 @OptIn(UnstableApi::class)
 object PlaybackCenter {
@@ -139,6 +157,10 @@ object PlaybackCenter {
     private var playerRef: ExoPlayer? = null
     private var resolveJob: Job? = null
 
+    /** Items of the music playlist that have not been resolved yet. */
+    private val pendingMusic = ConcurrentHashMap<String, QueueEntry>()
+    private val musicItemId = AtomicLong(0L)
+
     @Volatile var mode: Mode = Mode.NONE
         private set
     @Volatile var inPip: Boolean = false
@@ -160,7 +182,6 @@ object PlaybackCenter {
         private set
     private var selectedHeight: Int? = null
 
-    /** Currently selected video height: null = auto (best), -1 = audio only. */
     val selectedQualityHeight: Int? get() = selectedHeight
 
     val selectedAudioTrackLabel: String?
@@ -208,8 +229,21 @@ object PlaybackCenter {
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {
-            if (playbackState == Player.STATE_ENDED) {
+            if (playbackState == Player.STATE_ENDED && mode == Mode.VIDEO) {
                 advance()
+            }
+        }
+
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            if (mode != Mode.AUDIO) return
+            val index = playerRef?.currentMediaItemIndex ?: return
+            if (index < 0 || index >= queue.size) return
+            queueIndex = index
+            currentEntry?.let { entry ->
+                notify { it.onItemChanged(entry) }
+                if (!entry.url.startsWith("file://")) {
+                    resolveCatalog(entry)
+                }
             }
         }
 
@@ -237,11 +271,20 @@ object PlaybackCenter {
         }
     }
 
+    /** Kills the current playback instantly so sounds never overlap. */
+    private fun stopPlayerNow() {
+        playerRef?.run {
+            stop()
+            clearMediaItems()
+        }
+    }
+
     // ----- Commands -----
 
     /** Starts a video (watch page). Builds a YouTube-like autoplay queue. */
     fun playVideo(entry: QueueEntry, extraQueue: List<QueueEntry> = emptyList()) {
         initFromApp()
+        stopPlayerNow()
         mode = Mode.VIDEO
         radioMode = false
         audioOnlyMode = false
@@ -249,19 +292,22 @@ object PlaybackCenter {
         resolveCurrent()
     }
 
-    /** Starts a song; when radio is true the queue keeps growing with related songs. */
+    /**
+     * Starts a song. The whole queue becomes a real player playlist whose
+     * streams are resolved on demand; when radio is true the queue keeps
+     * growing with related songs.
+     */
     fun playMusic(entry: QueueEntry, radio: Boolean) {
         initFromApp()
+        stopPlayerNow()
         mode = Mode.AUDIO
         radioMode = radio
         audioOnlyMode = false
+        pendingMusic.clear()
         setQueue(listOf(entry), 0)
-        resolveCurrent()
-    }
-
-    /** Continues an already loaded item (re-opening the watch page from the mini player). */
-    fun reattach() {
-        // Nothing to do: the player keeps its state. The UI simply rebinds.
+        startMusicPlaylist()
+        resolveCatalog(entry)
+        ensureService()
     }
 
     fun togglePlayPause() {
@@ -288,23 +334,35 @@ object PlaybackCenter {
     }
 
     fun next() {
-        if (queueIndex < queue.size - 1) {
-            queueIndex++
-            resolveCurrent()
+        when (mode) {
+            Mode.AUDIO -> playerRef?.run {
+                if (hasNextMediaItem()) seekToNextMediaItem()
+            }
+            Mode.VIDEO -> if (queueIndex < queue.size - 1) {
+                queueIndex++
+                resolveCurrent()
+            }
+            Mode.NONE -> Unit
         }
     }
 
     fun previous() {
-        if (queueIndex > 0) {
-            queueIndex--
-            resolveCurrent()
-        } else {
-            playerRef?.seekTo(0)
+        when (mode) {
+            Mode.AUDIO -> playerRef?.run {
+                if (hasPreviousMediaItem()) seekToPreviousMediaItem()
+                else seekTo(0)
+            }
+            Mode.VIDEO -> if (queueIndex > 0) {
+                queueIndex--
+                resolveCurrent()
+            }
+            Mode.NONE -> Unit
         }
     }
 
     fun stopPlayback() {
         resolveJob?.cancel()
+        pendingMusic.clear()
         playerRef?.run {
             stop()
             clearMediaItems()
@@ -376,6 +434,7 @@ object PlaybackCenter {
         mode = if (record.type == DownloadCenter.TYPE_AUDIO) Mode.AUDIO else Mode.VIDEO
         audioOnlyMode = record.type == DownloadCenter.TYPE_AUDIO
         radioMode = false
+        pendingMusic.clear()
         queue.clear()
         queue.add(
             QueueEntry(
@@ -429,6 +488,7 @@ object PlaybackCenter {
         throw IllegalStateException("PlaybackCenter.init(context) must be called in Application.onCreate()")
     }
 
+    /** Video mode: resolve the current item and play it. */
     private fun resolveCurrent() {
         val entry = currentEntry ?: return
         resolveJob?.cancel()
@@ -439,8 +499,7 @@ object PlaybackCenter {
                 if (LiveFilter.isLive(info)) {
                     throw IllegalArgumentException("LIVE_CONTENT")
                 }
-                val newCatalog = StreamCatalog(info)
-                catalog = newCatalog
+                catalog = StreamCatalog(info)
                 usedFallback = false
                 LocalStore.addToHistory(appContext, entry.toVideoEntry())
                 applySources(playbackSpeed)
@@ -456,13 +515,53 @@ object PlaybackCenter {
         }
     }
 
-    /** Appends related items so next/previous + autoplay keep working. */
+    /** Music mode: resolve metadata for the current song (downloads, radio). */
+    private fun resolveCatalog(entry: QueueEntry) {
+        resolveJob?.cancel()
+        notify { it.onResolvingChanged(true) }
+        resolveJob = scope.launch {
+            try {
+                val info = YtRepository.streamInfo(entry.url)
+                if (LiveFilter.isLive(info)) {
+                    throw IllegalArgumentException("LIVE_CONTENT")
+                }
+                catalog = StreamCatalog(info)
+                LocalStore.addToHistory(appContext, entry.toVideoEntry())
+                notify { it.onItemChanged(currentEntry) }
+                notify { it.onCatalogReady() }
+                if (radioMode) {
+                    extendRadioFromRelated()
+                }
+            } catch (e: Exception) {
+                notify { it.onError(if (e.message.isNullOrBlank()) e.javaClass.simpleName else e.message!!) }
+            } finally {
+                notify { it.onResolvingChanged(false) }
+            }
+        }
+    }
+
+    /** Appends related items so next/previous + autoplay keep working (video mode). */
     private fun extendQueueFromRelated() {
         val rel = catalog?.related ?: return
         val known = queue.map { it.url }.toSet()
-        val additions = rel.filter { it.url !in known }.take(20).map { it.toQueueEntry(isMusic = mode == Mode.AUDIO) }
+        val additions = rel.filter { it.url !in known }.take(20)
+            .map { it.toQueueEntry(isMusic = mode == Mode.AUDIO) }
         if (additions.isEmpty()) return
         queue.addAll(additions)
+        notify { it.onQueueChanged() }
+    }
+
+    /** Grows the music playlist with related songs before it runs dry. */
+    private fun extendRadioFromRelated() {
+        val rel = catalog?.related ?: return
+        val known = queue.map { it.url }.toSet()
+        val additions = rel.filter { it.url !in known && !LiveFilter.isLive(it) }
+            .take(20)
+            .map { it.toQueueEntry(isMusic = true) }
+        if (additions.isEmpty()) return
+        queue.addAll(additions)
+        val items = additions.map { musicMediaItem(it) }
+        playerRef?.addMediaItems(items)
         notify { it.onQueueChanged() }
     }
 
@@ -484,7 +583,7 @@ object PlaybackCenter {
         notify { it.onError("Playback error: ${error.errorCodeName}") }
     }
 
-    /** Builds and applies the media source for the current entry + selections. */
+    /** Builds and applies the media source for the current entry + selections (video mode). */
     private fun applySources(speed: Float) {
         val entry = currentEntry ?: return
         val c = catalog ?: return
@@ -560,8 +659,10 @@ object PlaybackCenter {
         val height = selectedHeight
         return when {
             height == null -> c.videoOnly.firstOrNull() ?: c.muxed.firstOrNull()
-            c.videoOnly.any { it.height == height } -> c.videoOnly.first { it.height == height }
-            c.muxed.any { it.height == height } -> c.muxed.first { it.height == height }
+            c.videoOnly.any { it.effectiveHeight() == height } ->
+                c.videoOnly.first { it.effectiveHeight() == height }
+            c.muxed.any { it.effectiveHeight() == height } ->
+                c.muxed.first { it.effectiveHeight() == height }
             else -> c.videoOnly.firstOrNull() ?: c.muxed.firstOrNull()
         }
     }
@@ -578,8 +679,56 @@ object PlaybackCenter {
     private fun audioUri(stream: AudioStream): Uri = Uri.parse(stream.content)
     private fun audioUri(stream: VideoStream): Uri = Uri.parse(stream.content)
 
-    private fun progressiveSource(item: MediaItem): MediaSource =
-        ProgressiveMediaSource.Factory(dataSourceFactory).createMediaSource(item)
+    // ----- Music playlist -----
+
+    /**
+     * Builds the lazy-resolving playlist on the player. Each item uses a
+     * virtual sparktube:// URI that the resolving data source swaps for the
+     * real audio stream URL right before it is opened.
+     */
+    private fun startMusicPlaylist() {
+        val entry = currentEntry ?: return
+        val item = musicMediaItem(entry)
+        player.run {
+            setMediaItem(item, 0L)
+            prepare()
+            playWhenReady = true
+            setPlaybackSpeed(playbackSpeed)
+        }
+    }
+
+    private fun musicMediaItem(entry: QueueEntry): MediaItem {
+        val key = "music-${musicItemId.incrementAndGet()}"
+        pendingMusic[key] = entry
+        return MediaItem.Builder()
+            .setUri("sparktube://queue/$key")
+            .setMediaMetadata(
+                MediaMetadata.Builder()
+                    .setTitle(entry.title)
+                    .setArtist(entry.uploader)
+                    .setArtworkUri(entry.thumbnailUrl.takeIf { it.isNotBlank() }?.let(Uri::parse))
+                    .build()
+            )
+            .build()
+    }
+
+    /** Blocking stream resolution for the playlist (runs on the loading thread). */
+    private fun resolveMusicUri(key: String): Uri {
+        val entry = pendingMusic[key]
+            ?: throw IOException("Playlist item vanished: $key")
+        val info = runBlocking { YtRepository.streamInfo(entry.url) }
+        if (LiveFilter.isLive(info)) {
+            pendingMusic.remove(key)
+            throw IOException("LIVE_CONTENT")
+        }
+        val audio = StreamCatalog(info).audioTracks.firstOrNull()?.best
+        if (audio == null) {
+            pendingMusic.remove(key)
+            throw IOException("No audio stream found")
+        }
+        pendingMusic.remove(key)
+        return Uri.parse(audio.content)
+    }
 
     val dataSourceFactory: DefaultDataSource.Factory by lazy {
         val http = DefaultHttpDataSource.Factory()
@@ -587,7 +736,17 @@ object PlaybackCenter {
             .setConnectTimeoutMs(15_000)
             .setReadTimeoutMs(20_000)
             .setAllowCrossProtocolRedirects(true)
-        DefaultDataSource.Factory(appContext, http)
+        val resolving = ResolvingDataSource.Factory(http) { dataSpec ->
+            val uri = dataSpec.uri
+            if (uri.scheme == "sparktube") {
+                val key = "${uri.host ?: ""}${uri.path.orEmpty()}".removePrefix("//")
+                    .removePrefix("queue/")
+                dataSpec.buildUpon().setUri(resolveMusicUri(key)).build()
+            } else {
+                dataSpec
+            }
+        }
+        DefaultDataSource.Factory(appContext, resolving)
     }
 
     // ----- View attach helpers -----

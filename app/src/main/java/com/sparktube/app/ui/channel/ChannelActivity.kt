@@ -19,6 +19,7 @@ import com.sparktube.app.ui.common.toUiModel
 import com.sparktube.app.ui.common.VideoAdapter
 import com.sparktube.app.ui.player.PlayerActivity
 import com.sparktube.app.util.Formatters
+import com.sparktube.app.util.Thumbs
 import kotlinx.coroutines.launch
 import org.schabi.newpipe.extractor.Page
 
@@ -90,10 +91,7 @@ class ChannelActivity : AppCompatActivity() {
                 binding.channelName.text = channel.name
                 binding.channelSubs.text =
                     getString(R.string.subscribers_fmt, Formatters.formatViewCount(channel.subscriberCount))
-                binding.channelAvatar.load(channel.avatarUrl) {
-                    placeholder(android.graphics.drawable.ColorDrawable(getColor(R.color.thumbnail_placeholder)))
-                    error(android.graphics.drawable.ColorDrawable(getColor(R.color.thumbnail_placeholder)))
-                }
+                Thumbs.load(binding.channelAvatar, channel.avatarUrl)
                 updateSubscribeUi()
 
                 val (videos, nextPage) = YtRepository.channelVideos(channelUrl)

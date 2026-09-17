@@ -9,6 +9,7 @@ import androidx.recyclerview.widget.RecyclerView
 import coil.load
 import com.sparktube.app.R
 import com.sparktube.app.databinding.ItemMusicRowBinding
+import com.sparktube.app.util.Thumbs
 
 /** Spotify-style song row: square art, bold title, gray artist line. */
 class MusicRowAdapter(
@@ -38,11 +39,7 @@ class MusicRowAdapter(
         b.subtitle.text = item.uploader
         b.duration.text = item.durationLabel
 
-        b.art.load(item.thumbnailUrl) {
-            crossfade(true)
-            placeholder(ContextCompat.getDrawable(b.root.context, R.color.thumbnail_placeholder))
-            error(ContextCompat.getDrawable(b.root.context, R.color.thumbnail_placeholder))
-        }
+        Thumbs.load(b.art, item.thumbnailUrl)
 
         b.root.setOnClickListener { onClick(item) }
     }

@@ -44,23 +44,15 @@ class PlaybackService : MediaSessionService() {
     private fun updateCustomLayout() {
         val session = mediaSession ?: return
         val isFavorite = PlaybackCenter.isCurrentFavorite()
+        // Previous / next come from the player itself now (real playlist),
+        // so only the favourite toggle is a custom notification button.
         val buttons = listOf(
-            CommandButton.Builder()
-                .setDisplayName("Previous")
-                .setSessionCommand(SessionCommand(ACTION_PREV, Bundle.EMPTY))
-                .setIconResId(R.drawable.ic_skip_previous)
-                .build(),
             CommandButton.Builder()
                 .setDisplayName(if (isFavorite) "Unfavorite" else "Favorite")
                 .setSessionCommand(SessionCommand(ACTION_FAV, Bundle.EMPTY))
                 .setIconResId(
                     if (isFavorite) R.drawable.ic_favorite else R.drawable.ic_favorite_border
                 )
-                .build(),
-            CommandButton.Builder()
-                .setDisplayName("Next")
-                .setSessionCommand(SessionCommand(ACTION_NEXT, Bundle.EMPTY))
-                .setIconResId(R.drawable.ic_skip_next)
                 .build()
         )
         session.setCustomLayout(buttons)

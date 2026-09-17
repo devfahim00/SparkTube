@@ -14,6 +14,7 @@ import com.sparktube.app.download.DownloadCenter
 import com.sparktube.app.playback.AudioTrackGroup
 import com.sparktube.app.playback.QueueEntry
 import com.sparktube.app.playback.StreamCatalog
+import com.sparktube.app.playback.effectiveHeight
 
 /**
  * Download picker: Audio only / Video only / Video + Audio, each with a
@@ -62,8 +63,9 @@ class DownloadSheet(
                 .filter { it.isUrl }
                 .sortedByDescending { it.averageBitrate }
                 .forEach { stream ->
+                    // NPE reports the audio average bitrate directly in kbps.
                     val kbps = if (stream.averageBitrate > 0) {
-                        "${stream.averageBitrate / 1000} kbps"
+                        "${stream.averageBitrate} kbps"
                     } else {
                         "Audio"
                     }
@@ -98,9 +100,9 @@ class DownloadSheet(
             }
             videoChoices.forEach { v ->
                 val label = if (v.isVideoOnly) {
-                    "${v.height}p (video only, no sound)"
+                    "${v.effectiveHeight()}p (video only, no sound)"
                 } else {
-                    "${v.height}p (muxed, video + sound)"
+                    "${v.effectiveHeight()}p (muxed, video + sound)"
                 }
                 root.addView(optionRow(label) {
                     DownloadCenter.startSingle(
@@ -110,7 +112,7 @@ class DownloadSheet(
                         entry.uploader,
                         entry.thumbnailUrl,
                         DownloadCenter.TYPE_VIDEO,
-                        "${v.height}p",
+                        "${v.effectiveHeight()}p",
                         v.content,
                         "mp4"
                     )
@@ -131,14 +133,14 @@ class DownloadSheet(
                 }
                 root.addView(note)
                 catalog.videoOnly.forEach { v ->
-                    root.addView(optionRow("${v.height}p") {
+                    root.addView(optionRow("${v.effectiveHeight()}p") {
                         DownloadCenter.startPair(
                             context,
                             entry.url,
                             entry.title,
                             entry.uploader,
                             entry.thumbnailUrl,
-                            "${v.height}p",
+                            "${v.effectiveHeight()}p",
                             v.content,
                             audioTrack.best!!.content
                         )

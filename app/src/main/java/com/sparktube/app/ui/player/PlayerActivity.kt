@@ -2,6 +2,7 @@ package com.sparktube.app.ui.player
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -11,11 +12,13 @@ import android.util.Rational
 import android.util.TypedValue
 import android.view.GestureDetector
 import android.view.MotionEvent
+import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
 import androidx.lifecycle.lifecycleScope
@@ -27,21 +30,22 @@ import com.sparktube.app.data.YtRepository
 import com.sparktube.app.databinding.ActivityPlayerBinding
 import com.sparktube.app.playback.PlaybackCenter
 import com.sparktube.app.playback.QueueEntry
-import com.sparktube.app.playback.toQueueEntry
-import com.sparktube.app.ui.common.toQueueEntry
+import com.sparktube.app.playback.effectiveHeight
 import com.sparktube.app.ui.channel.ChannelActivity
-import com.sparktube.app.ui.common.toUiModel
 import com.sparktube.app.ui.common.VideoAdapter
+import com.sparktube.app.ui.common.toQueueEntry
+import com.sparktube.app.ui.common.toUiModel
 import com.sparktube.app.util.Formatters
+import com.sparktube.app.util.Thumbs
 import coil.load
 import kotlinx.coroutines.launch
 
 /**
  * YouTube-style watch page: standard 16:9 player on top, title, views,
  * action pills (favorite / share / download / background audio / PiP),
- * quality + speed + audio-track controls, channel row with subscribe and
- * related videos below. A swipe down on the video shrinks playback into
- * the mini player.
+ * channel row with subscribe and related videos below. Quality, playback
+ * speed and the dubbing audio track live inside the player's gear menu.
+ * A swipe down on the video shrinks playback into the mini player.
  */
 class PlayerActivity : AppCompatActivity() {
 
@@ -109,12 +113,12 @@ class PlayerActivity : AppCompatActivity() {
             finish()
         }
         binding.actionPip.setOnClickListener { enterPipOrToast() }
-        binding.actionQuality.setOnClickListener { showQualitySheet() }
-        binding.actionSpeed.setOnClickListener { showSpeedSheet() }
-        binding.actionAudioTrack.setOnClickListener { showAudioTrackSheet() }
 
         binding.channelInfo.setOnClickListener { openChannel() }
         binding.subscribeButton.setOnClickListener { toggleSubscribe() }
+
+        // Fullscreen toggle: portrait <-> landscape without restarting the activity.
+        binding.fullscreenButton.setOnClickListener { toggleFullscreen() }
 
         gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
             override fun onDown(e: MotionEvent): Boolean {
@@ -141,6 +145,8 @@ class PlayerActivity : AppCompatActivity() {
             v.onTouchEvent(event)
         }
 
+        hookGearMenu()
+
         applyOrientation(resources.configuration)
 
         if (intent.getBooleanExtra(EXTRA_ATTACH, false) && PlaybackCenter.hasMedia) {
@@ -161,6 +167,24 @@ class PlayerActivity : AppCompatActivity() {
             } else {
                 PlaybackCenter.playVideo(entry)
             }
+        }
+    }
+
+    /**
+     * Puts quality / speed / audio-track selection behind the gear button of
+     * the player's built-in controller.
+     */
+    private fun hookGearMenu() {
+        val gear = binding.playerView.findViewById<View>(R.id.exo_settings)
+        gear?.setOnClickListener { showVideoSettingsSheet() }
+    }
+
+    private fun toggleFullscreen() {
+        val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        requestedOrientation = if (landscape) {
+            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        } else {
+            ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         }
     }
 
@@ -189,6 +213,10 @@ class PlayerActivity : AppCompatActivity() {
     override fun onStop() {
         super.onStop()
         PlaybackCenter.removeListener(playbackListener)
+        // Return to sensor portrait so the next video starts the standard way.
+        if (requestedOrientation != ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED) {
+            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        }
     }
 
     // ----- PiP -----
@@ -229,19 +257,22 @@ class PlayerActivity : AppCompatActivity() {
     ) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         PlaybackCenter.inPip = isInPictureInPictureMode
-        binding.backButton.isVisible = isInPictureInPictureMode
         if (isInPictureInPictureMode) {
+            // Show the video only: no back button, no fullscreen button, no page.
+            binding.backButton.isVisible = false
+            binding.fullscreenButton.isVisible = false
             binding.scrollArea.isVisible = false
             binding.loading.isVisible = false
             binding.errorView.isVisible = false
             // Expand player to the whole window
-            binding.playerView.updateLayoutParams<androidx.constraintlayout.widget.ConstraintLayout.LayoutParams> {
+            binding.playerView.updateLayoutParams<ConstraintLayout.LayoutParams> {
                 height = ViewGroup.LayoutParams.MATCH_PARENT
                 dimensionRatio = null
             }
         } else {
+            binding.fullscreenButton.isVisible = true
             binding.scrollArea.isVisible = true
-            binding.playerView.updateLayoutParams<androidx.constraintlayout.widget.ConstraintLayout.LayoutParams> {
+            binding.playerView.updateLayoutParams<ConstraintLayout.LayoutParams> {
                 height = 0
                 dimensionRatio = "16:9"
             }
@@ -259,13 +290,13 @@ class PlayerActivity : AppCompatActivity() {
         val landscape = config.orientation == Configuration.ORIENTATION_LANDSCAPE
         if (landscape) {
             binding.scrollArea.isVisible = false
-            binding.playerView.updateLayoutParams<androidx.constraintlayout.widget.ConstraintLayout.LayoutParams> {
+            binding.playerView.updateLayoutParams<ConstraintLayout.LayoutParams> {
                 height = ViewGroup.LayoutParams.MATCH_PARENT
                 dimensionRatio = null
             }
         } else {
             binding.scrollArea.isVisible = true
-            binding.playerView.updateLayoutParams<androidx.constraintlayout.widget.ConstraintLayout.LayoutParams> {
+            binding.playerView.updateLayoutParams<ConstraintLayout.LayoutParams> {
                 height = 0
                 dimensionRatio = "16:9"
             }
@@ -313,28 +344,9 @@ class PlayerActivity : AppCompatActivity() {
             }
             binding.channelName.text = catalog.uploaderName.ifBlank { entry.uploader }
             if (catalog.uploaderAvatarUrl.isNotBlank()) {
-                binding.channelAvatar.load(catalog.uploaderAvatarUrl) {
-                    placeholder(android.graphics.drawable.ColorDrawable(getColor(R.color.thumbnail_placeholder)))
-                }
+                Thumbs.load(binding.channelAvatar, catalog.uploaderAvatarUrl)
             }
-            binding.actionAudioTrack.isVisible = catalog.audioTracks.size > 1
-
             relatedAdapter.submitList(catalog.related.map { it.toUiModel() })
-
-            val height = PlaybackCenter.selectedQualityHeight
-            binding.qualityValue.text = when {
-                height != null -> height.toString() + "p"
-                catalog.videoOnly.isNotEmpty() -> catalog.videoOnly.first().height.toString() + "p"
-                catalog.muxed.isNotEmpty() -> catalog.muxed.first().height.toString() + "p"
-                else -> getString(R.string.quality_audio_only)
-            }
-            val track = PlaybackCenter.selectedAudioTrackLabel
-            binding.audioTrackValue.text = track ?: getString(R.string.action_audio_track)
-        }
-        binding.speedValue.text = if (PlaybackCenter.playbackSpeed == 1.0f) {
-            getString(R.string.action_speed)
-        } else {
-            "${PlaybackCenter.playbackSpeed}x"
         }
         updateSubscribeUi()
     }
@@ -434,105 +446,128 @@ class PlayerActivity : AppCompatActivity() {
 
     // ----- Bottom sheets -----
 
-    private fun showOptionSheet(
-        title: String,
-        options: List<Pair<String, Boolean>>,
-        onSelect: (Int) -> Unit
-    ) {
+    private fun sheetRoot(): LinearLayout = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        setPadding(dp(20), dp(16), dp(20), dp(24))
+    }
+
+    private fun sheetTitle(text: String): TextView = TextView(this).apply {
+        this.text = text
+        textSize = 16f
+        setTextColor(getColor(R.color.on_surface))
+        setTypeface(null, Typeface.BOLD)
+    }
+
+    private fun sheetSectionTitle(text: String): TextView = TextView(this).apply {
+        this.text = text
+        textSize = 13f
+        setTextColor(getColor(R.color.on_surface_variant))
+        setTypeface(null, Typeface.BOLD)
+        layoutParams = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+        ).also { it.topMargin = dp(14) }
+    }
+
+    private fun sheetRow(label: String, selected: Boolean, onClick: () -> Unit): TextView =
+        TextView(this).apply {
+            text = label
+            textSize = 15f
+            setPadding(dp(14), dp(12), dp(14), dp(12))
+            setTextColor(if (selected) getColor(R.color.white) else getColor(R.color.on_surface))
+            background = GradientDrawable().apply {
+                cornerRadius = dp(10).toFloat()
+                setColor(
+                    if (selected) getColor(R.color.spark_red)
+                    else getColor(R.color.surface_elevated)
+                )
+            }
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            ).also { it.topMargin = dp(8) }
+            setOnClickListener { onClick() }
+        }
+
+    /**
+     * The gear menu: quality + playback speed + dubbing audio track in one
+     * scrollable sheet.
+     */
+    private fun showVideoSettingsSheet() {
+        val catalog = PlaybackCenter.catalog
+        if (catalog == null) {
+            Toast.makeText(this, R.string.error_no_streams, Toast.LENGTH_SHORT).show()
+            return
+        }
+
         val sheet = BottomSheetDialog(this)
-        val root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(20), dp(16), dp(20), dp(24))
+        val root = sheetRoot()
+        root.addView(sheetTitle(getString(R.string.video_settings)))
+
+        // --- Quality ---
+        root.addView(sheetSectionTitle(getString(R.string.settings_quality_section)))
+        val currentHeight = PlaybackCenter.selectedQualityHeight
+        root.addView(
+            sheetRow(getString(R.string.quality_auto), currentHeight == null) {
+                PlaybackCenter.setVideoQuality(null)
+                sheet.dismiss()
+            }
+        )
+        catalog.videoOnly.forEach { v ->
+            val h = v.effectiveHeight()
+            root.addView(sheetRow("${h}p${if (v.fps > 30) " ${v.fps}fps" else ""}", currentHeight == h) {
+                PlaybackCenter.setVideoQuality(h)
+                sheet.dismiss()
+            })
         }
-        val titleView = TextView(this).apply {
-            text = title
-            textSize = 16f
-            setTextColor(getColor(R.color.on_surface))
-            setTypeface(null, Typeface.BOLD)
+        if (catalog.videoOnly.isEmpty()) {
+            catalog.muxed.forEach { v ->
+                val h = v.effectiveHeight()
+                root.addView(sheetRow("${h}p (muxed)", currentHeight == h) {
+                    PlaybackCenter.setVideoQuality(h)
+                    sheet.dismiss()
+                })
+            }
         }
-        root.addView(titleView)
-        options.forEachIndexed { index, (label, selected) ->
-            val row = TextView(this).apply {
-                text = label
-                textSize = 15f
-                setPadding(dp(14), dp(12), dp(14), dp(12))
-                setTextColor(if (selected) getColor(R.color.white) else getColor(R.color.on_surface))
-                background = GradientDrawable().apply {
-                    cornerRadius = dp(10).toFloat()
-                    setColor(
-                        if (selected) getColor(R.color.spark_red)
-                        else getColor(R.color.surface_elevated)
-                    )
-                }
-                layoutParams = LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
-                ).also { it.topMargin = dp(8) }
-                setOnClickListener {
-                    onSelect(index)
+        root.addView(
+            sheetRow(getString(R.string.quality_audio_only), currentHeight == -1) {
+                PlaybackCenter.setVideoQuality(-1)
+                sheet.dismiss()
+            }
+        )
+
+        // --- Playback speed ---
+        root.addView(sheetSectionTitle(getString(R.string.settings_speed_section)))
+        val speeds = listOf(0.25f, 0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f)
+        val currentSpeed = PlaybackCenter.playbackSpeed
+        speeds.forEach { s ->
+            root.addView(
+                sheetRow(if (s == 1.0f) "Normal" else "${s}x", s == currentSpeed) {
+                    PlaybackCenter.setSpeed(s)
                     sheet.dismiss()
                 }
-            }
-            root.addView(row)
+            )
         }
+
+        // --- Audio track (only when more than one dubbing language exists) ---
+        if (catalog.audioTracks.size > 1) {
+            root.addView(sheetSectionTitle(getString(R.string.settings_audio_track_section)))
+            val currentTrack = PlaybackCenter.selectedAudioTrackId
+            catalog.audioTracks.forEach { t ->
+                root.addView(
+                    sheetRow(
+                        t.label + if (t.isOriginal) " (original)" else "",
+                        currentTrack == t.id
+                    ) {
+                        PlaybackCenter.setAudioTrack(t.id)
+                        sheet.dismiss()
+                    }
+                )
+            }
+        }
+
         val scroll = android.widget.ScrollView(this).apply { addView(root) }
         sheet.setContentView(scroll)
         sheet.behavior.peekHeight = dp(420)
         sheet.show()
-    }
-
-    private fun showQualitySheet() {
-        val catalog = PlaybackCenter.catalog ?: return
-        val current = PlaybackCenter.selectedQualityHeight
-        val options = mutableListOf<Pair<String, Boolean>>()
-
-        catalog.videoOnly.forEach { v ->
-            val h = v.height
-            options.add("${h}p (adaptive)" to (current == h))
-        }
-        // Muxed streams are only offered when no adaptive video exists
-        // (muxed tops out around 360p/720p).
-        if (catalog.videoOnly.isEmpty()) {
-            catalog.muxed.forEach { v ->
-                val h = v.height
-                options.add("${h}p (muxed)" to (current == h))
-            }
-        }
-        options.add(getString(R.string.quality_audio_only) to (current == -1))
-        showOptionSheet(getString(R.string.quality_label), options) { index ->
-            val chosen = catalog.videoOnly.getOrNull(index)
-            when {
-                index == options.size - 1 -> PlaybackCenter.setVideoQuality(-1)
-                chosen != null -> PlaybackCenter.setVideoQuality(chosen.height)
-                else -> PlaybackCenter.setVideoQuality(catalog.muxed.getOrNull(index)?.height)
-            }
-        }
-    }
-
-    private fun showSpeedSheet() {
-        val speeds = listOf(0.25f, 0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f)
-        val current = PlaybackCenter.playbackSpeed
-        showOptionSheet(
-            getString(R.string.speed_label),
-            speeds.map { s -> (if (s == 1.0f) "Normal" else "${s}x") to (s == current) }
-        ) { index ->
-            PlaybackCenter.setSpeed(speeds[index])
-            binding.speedValue.text =
-                if (speeds[index] == 1.0f) getString(R.string.action_speed) else "${speeds[index]}x"
-        }
-    }
-
-    private fun showAudioTrackSheet() {
-        val catalog = PlaybackCenter.catalog ?: return
-        if (catalog.audioTracks.isEmpty()) return
-        val current = PlaybackCenter.selectedAudioTrackId
-        val tracks = catalog.audioTracks
-        showOptionSheet(
-            getString(R.string.audio_track_label),
-            tracks.map { t -> t.label to (current == t.id) }
-        ) { index ->
-            PlaybackCenter.setAudioTrack(tracks[index].id)
-            binding.audioTrackValue.text = tracks[index].label
-        }
     }
 
     private fun showDownloadSheet() {

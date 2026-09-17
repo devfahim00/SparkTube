@@ -11,6 +11,7 @@ import com.sparktube.app.R
 import com.sparktube.app.data.DownloadRecord
 import com.sparktube.app.databinding.ItemDownloadBinding
 import com.sparktube.app.download.DownloadCenter
+import com.sparktube.app.util.Thumbs
 
 /** Download entries on the Library > Downloads tab. */
 class DownloadAdapter(
@@ -50,10 +51,7 @@ class DownloadAdapter(
             else -> b.root.context.getString(R.string.download_status_pending)
         }
         b.meta.text = "$typeLabel • ${item.quality} • $statusLabel"
-        b.thumb.load(item.thumbnailUrl) {
-            placeholder(ContextCompat.getDrawable(b.root.context, R.color.thumbnail_placeholder))
-            error(ContextCompat.getDrawable(b.root.context, R.color.thumbnail_placeholder))
-        }
+        Thumbs.load(b.thumb, item.thumbnailUrl)
 
         b.root.setOnClickListener { if (item.status == DownloadCenter.STATUS_DONE) onClick(item) }
         b.root.setOnLongClickListener {

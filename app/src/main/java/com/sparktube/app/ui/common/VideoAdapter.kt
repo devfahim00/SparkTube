@@ -9,6 +9,7 @@ import androidx.recyclerview.widget.RecyclerView
 import coil.load
 import com.sparktube.app.R
 import com.sparktube.app.databinding.ItemVideoBinding
+import com.sparktube.app.util.Thumbs
 
 class VideoAdapter(
     private val onClick: (VideoUiModel) -> Unit,
@@ -46,11 +47,7 @@ class VideoAdapter(
             b.duration.text = item.durationLabel
         }
 
-        b.thumbnail.load(item.thumbnailUrl) {
-            crossfade(true)
-            placeholder(ContextCompat.getDrawable(b.root.context, R.color.thumbnail_placeholder))
-            error(ContextCompat.getDrawable(b.root.context, R.color.thumbnail_placeholder))
-        }
+        Thumbs.load(b.thumbnail, item.thumbnailUrl)
 
         b.root.setOnClickListener { onClick(item) }
         b.root.setOnLongClickListener {
