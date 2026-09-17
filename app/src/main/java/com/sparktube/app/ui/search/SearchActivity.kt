@@ -19,6 +19,7 @@ import com.sparktube.app.ui.common.MusicRowAdapter
 import com.sparktube.app.ui.common.SuggestionAdapter
 import com.sparktube.app.ui.common.VideoAdapter
 import com.sparktube.app.ui.common.VideoUiModel
+import com.sparktube.app.ui.common.toQueueEntry
 import com.sparktube.app.ui.common.toUiModel
 import com.sparktube.app.ui.music.NowPlayingActivity
 import com.sparktube.app.ui.player.PlayerActivity

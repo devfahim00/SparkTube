@@ -23,7 +23,7 @@ import com.sparktube.app.data.LiveFilter
 import com.sparktube.app.data.VideoEntry
 import com.sparktube.app.data.YtRepository
 import com.sparktube.app.download.DownloadCenter
-import com.sparktube.app.download.DownloadRecord
+import com.sparktube.app.data.DownloadRecord
 import com.sparktube.app.net.OkHttpDownloader
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

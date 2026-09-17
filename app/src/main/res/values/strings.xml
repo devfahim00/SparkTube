@@ -109,4 +109,8 @@
 
     <!-- Channel -->
     <string name="channel_videos">Videos</string>
+
+    <!-- Common -->
+    <string name="ok">OK</string>
+    <string name="cancel">Cancel</string>
 </resources>
