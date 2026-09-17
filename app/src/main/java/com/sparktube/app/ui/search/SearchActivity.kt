@@ -12,6 +12,7 @@ import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.sparktube.app.R
 import com.sparktube.app.data.YtRepository
 import com.sparktube.app.databinding.ActivitySearchBinding
 import com.sparktube.app.playback.PlaybackCenter

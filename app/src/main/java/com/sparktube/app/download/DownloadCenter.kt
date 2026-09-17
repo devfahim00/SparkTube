@@ -141,7 +141,7 @@ object DownloadCenter {
     /** Deletes the files of a record and removes it from the registry. */
     fun delete(context: Context, record: DownloadRecord) {
         record.downloadIds.forEach { id ->
-            runCatching { downloadManager(context).remove(longArrayOf(id)) }
+            runCatching { downloadManager(context).remove(id) }
         }
         record.filePaths.forEach { path ->
             runCatching { File(path).delete() }

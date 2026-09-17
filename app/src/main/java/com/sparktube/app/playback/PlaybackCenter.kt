@@ -103,7 +103,7 @@ class StreamCatalog(info: StreamInfo) {
 
     fun qualityLabel(v: VideoStream, videoOnlyFirst: Boolean): String {
         val height = v.height
-        val fps = if (v.frameRate > 30f && v.frameRate < 100f) "${v.frameRate.toInt()}fps" else ""
+        val fps = if (v.fps > 30 && v.fps < 100) "${v.fps}fps" else ""
         val tag = if (videoOnlyFirst) " (video only)" else ""
         return listOf(height.toString() + "p", fps).filter { it.isNotBlank() }.joinToString("") + tag
     }

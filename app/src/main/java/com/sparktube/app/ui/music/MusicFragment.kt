@@ -162,8 +162,8 @@ class MusicFragment : Fragment() {
                 columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
                 topMargin = margin
                 bottomMargin = margin
-                startMargin = margin / 2
-                endMargin = margin / 2
+                marginStart = margin / 2
+                marginEnd = margin / 2
             }
             grid.addView(tile, params)
         }
