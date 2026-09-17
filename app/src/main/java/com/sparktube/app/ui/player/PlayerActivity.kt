@@ -27,6 +27,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
+import androidx.media3.ui.PlayerView
 import androidx.media3.ui.R as Media3R
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -120,10 +121,16 @@ class PlayerActivity : AppCompatActivity() {
         // The fullscreen button only appears together with the player's own
         // controls (gear / seek bar), like the official app.
         binding.fullscreenButton.isVisible = false
-        binding.playerView.setControllerVisibilityListener { visibility ->
-            controllerVisible = visibility == View.VISIBLE
-            syncFullscreenButtonVisibility()
-        }
+        // Explicit object: a lambda would be ambiguous between the two
+        // setControllerVisibilityListener overloads.
+        binding.playerView.setControllerVisibilityListener(
+            object : PlayerView.ControllerVisibilityListener {
+                override fun onVisibilityChanged(visibility: Int) {
+                    controllerVisible = visibility == View.VISIBLE
+                    syncFullscreenButtonVisibility()
+                }
+            }
+        )
 
         relatedAdapter = VideoAdapter(onClick = { model ->
             // Play inside this page so swipe/mini flow keeps working.
