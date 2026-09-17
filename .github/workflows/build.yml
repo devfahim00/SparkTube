@@ -3,13 +3,17 @@ name: Build SparkTube
 on:
   push:
     branches: ['**']
+    tags: ['v*']
   pull_request:
     branches: ['**']
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
-    name: Build Debug APK
+    name: Build APKs
     runs-on: ubuntu-latest
 
     steps:
@@ -28,8 +32,34 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
+      - name: Decode release keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$HOME/release.keystore"
+            echo "ANDROID_KEYSTORE_FILE=$HOME/release.keystore" >> "$GITHUB_ENV"
+            echo "Release signing enabled"
+          else
+            echo "No keystore secret - release APK will be unsigned"
+          fi
+
       - name: Build debug APK
         run: ./gradlew assembleDebug --stacktrace
+
+      - name: Build signed release APK
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew assembleRelease --stacktrace
+
+      - name: Verify APK signature
+        if: env.ANDROID_KEYSTORE_FILE != ''
+        run: |
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          "$APKSIGNER" verify --print-certs \
+            app/build/outputs/apk/release/app-release.apk | head -5
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
@@ -37,3 +67,28 @@ jobs:
           name: SparkTube-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+
+      - name: Upload release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SparkTube-release-apk
+          path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+
+      - name: Stage release asset
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk \
+            "SparkTube-${GITHUB_REF_NAME}.apk" || {
+            cp app/build/outputs/apk/release/*.apk \
+              "SparkTube-${GITHUB_REF_NAME}.apk"; }
+
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: SparkTube-*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

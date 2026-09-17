@@ -12,9 +12,11 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.ResolvingDataSource
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.MediaSource
@@ -258,6 +260,21 @@ object PlaybackCenter {
                 // protocol: sparktube" and playback skips to the next track
                 // (which fails the same way).
                 .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
+                // Fast start: begin rendering as soon as 1s of media is
+                // buffered (2s after a mid-play stall) instead of the
+                // default 2.5s/5s thresholds, and keep 10s behind the play
+                // position so short backward seeks do not hit the network.
+                .setLoadControl(
+                    DefaultLoadControl.Builder()
+                        .setBufferDurationsMs(
+                            /* minBufferMs = */ 15_000,
+                            /* maxBufferMs = */ 50_000,
+                            /* bufferForPlaybackMs = */ 1_000,
+                            /* bufferForPlaybackAfterRebufferMs = */ 2_000
+                        )
+                        .setBackBuffer(/* backBufferDurationMs = */ 10_000, /* retainBackBufferFromKeyframe = */ true)
+                        .build()
+                )
                 .setAudioAttributes(
                     AudioAttributes.Builder()
                         .setUsage(C.USAGE_MEDIA)
@@ -1022,12 +1039,32 @@ object PlaybackCenter {
             if (uri.scheme == "sparktube") {
                 val key = "${uri.host ?: ""}${uri.path.orEmpty()}".removePrefix("//")
                     .removePrefix("queue/")
-                dataSpec.buildUpon().setUri(resolveMusicUri(key)).build()
+                forceInitialRangeHeader(dataSpec.buildUpon().setUri(resolveMusicUri(key)).build())
             } else {
-                dataSpec
+                forceInitialRangeHeader(dataSpec)
             }
         }
         DefaultDataSource.Factory(appContext, resolving)
+    }
+
+    /**
+     * YouTube (googlevideo) serves the *first* open of a progressive stream
+     * (no Range header: position 0 + unknown length) from a throttled path,
+     * which is why videos took ages to start while a seek (which always sends
+     * a Range header) started instantly. Forcing `Range: bytes=0-` on that
+     * initial open puts it on the same fast path a seek uses. Seeks and
+     * re-opens (position != 0) are untouched: DefaultHttpDataSource computes
+     * and overrides its own Range header for them after applying our
+     * httpRequestHeaders, so this can never corrupt a real range request.
+     */
+    private fun forceInitialRangeHeader(spec: DataSpec): DataSpec {
+        val scheme = spec.uri.scheme
+        if (scheme != "http" && scheme != "https") return spec
+        if (spec.position != 0L || spec.length != C.LENGTH_UNSET) return spec
+        if (spec.httpRequestHeaders.containsKey("Range")) return spec
+        val headers = HashMap(spec.httpRequestHeaders)
+        headers["Range"] = "bytes=0-"
+        return spec.buildUpon().setHttpRequestHeaders(headers).build()
     }
 
     // ----- View attach helpers -----

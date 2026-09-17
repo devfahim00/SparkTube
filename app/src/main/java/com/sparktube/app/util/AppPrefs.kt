@@ -55,9 +55,9 @@ object AppPrefs {
             sp.edit().putString(KEY_ACCENT, value).apply()
         }
 
-    /** 0 = auto (best available), otherwise a pixel height like 720. */
+    /** 0 = auto (best available), otherwise a pixel height like 720. Default: 720p (fast start). */
     var defaultVideoHeight: Int
-        get() = sp.getInt(KEY_DEFAULT_VIDEO_HEIGHT, 0)
+        get() = sp.getInt(KEY_DEFAULT_VIDEO_HEIGHT, 720)
         set(value) {
             sp.edit().putInt(KEY_DEFAULT_VIDEO_HEIGHT, value).apply()
         }

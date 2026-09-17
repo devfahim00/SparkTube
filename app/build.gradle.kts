@@ -11,8 +11,29 @@ android {
         applicationId = "com.sparktube.app"
         minSdk = 24
         targetSdk = 34
-        versionCode = 2
-        versionName = "2.0.0"
+        versionCode = 3
+        versionName = "1.0.0"
+    }
+
+    // Release signing: credentials come from environment variables so they
+    // never live in the repo. CI exports them from GitHub secrets; local
+    // builds without the vars simply produce an unsigned release APK.
+    val keystoreFile = System.getenv("ANDROID_KEYSTORE_FILE")
+    val keystorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+    val keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+    val keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+    val hasReleaseSigning = keystoreFile != null && keystorePassword != null &&
+        keyAlias != null && keyPassword != null
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(keystoreFile!!)
+                storePassword = keystorePassword
+                this.keyAlias = keyAlias
+                this.keyPassword = keyPassword
+            }
+        }
     }
 
     buildTypes {
@@ -22,6 +43,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
