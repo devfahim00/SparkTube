@@ -66,13 +66,6 @@
                 android:paddingEnd="12dp"
                 android:paddingBottom="110dp" />
 
-            <ProgressBar
-                android:id="@+id/loading"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:visibility="gone" />
-
             <LinearLayout
                 android:id="@+id/errorView"
                 android:layout_width="wrap_content"

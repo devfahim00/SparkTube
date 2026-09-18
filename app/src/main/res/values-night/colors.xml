@@ -19,6 +19,11 @@
 
     <color name="thumbnail_placeholder">#232329</color>
 
+    <!-- Skeleton loading placeholders. -->
+    <color name="skeleton">#202026</color>
+    <color name="skeleton_circle">#232329</color>
+    <color name="skeleton_thumb">#1C1C21</color>
+
     <color name="mini_player_bg">#2E2E36</color>
     <color name="sheet_bg">#1D1D22</color>
 

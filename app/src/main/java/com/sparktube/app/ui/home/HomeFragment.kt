@@ -14,6 +14,8 @@ import com.sparktube.app.data.Countries
 import com.sparktube.app.data.RecommendEngine
 import com.sparktube.app.data.YtRepository
 import com.sparktube.app.databinding.FragmentHomeBinding
+import com.sparktube.app.ui.common.SkeletonAdapter
+import com.sparktube.app.ui.common.showSkeleton
 import com.sparktube.app.ui.common.toUiModel
 import com.sparktube.app.ui.common.VideoAdapter
 import com.sparktube.app.ui.player.PlayerActivity
@@ -100,26 +102,32 @@ class HomeFragment : Fragment() {
         val b = _binding ?: return
         val ctx = requireContext()
         loadJob = viewLifecycleOwner.lifecycleScope.launch {
-            b.loading.isVisible = true
             b.errorView.isVisible = false
             b.emptyView.isVisible = false
+            // Skeleton cards instead of a spinner: the feed keeps its shape
+            // while the personalized list is being fetched.
+            showSkeleton(b.list, SkeletonAdapter.STYLE_VIDEO, count = 10)
             try {
                 val snap = withContext(Dispatchers.IO) {
                     RecommendEngine.snapshot(ctx)
                 }
                 val items = YtRepository.personalizedFeed(country, snap)
+                b.list.adapter = adapter
                 adapter.submitList(items.map { it.toUiModel() })
                 b.emptyView.isVisible = items.isEmpty()
                 if (items.isEmpty()) {
                     b.errorText.text = getString(R.string.error_no_results)
                     b.errorView.isVisible = true
                 }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                // A newer load() cancelled this one: not an error.
+                throw e
             } catch (e: Exception) {
+                b.list.adapter = adapter
                 adapter.submitList(emptyList())
                 b.errorText.text = Formatters.friendlyException(e)
                 b.errorView.isVisible = true
             } finally {
-                b.loading.isVisible = false
                 b.swipe.isRefreshing = false
             }
         }

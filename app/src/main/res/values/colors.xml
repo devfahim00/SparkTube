@@ -23,6 +23,11 @@
 
     <color name="thumbnail_placeholder">#E4E4E8</color>
 
+    <!-- Skeleton loading placeholders. -->
+    <color name="skeleton">#E4E4E9</color>
+    <color name="skeleton_circle">#E4E4E9</color>
+    <color name="skeleton_thumb">#E9E9ED</color>
+
     <color name="badge_bg">#CC000000</color>
     <color name="ic_launcher_background">#17171B</color>
 

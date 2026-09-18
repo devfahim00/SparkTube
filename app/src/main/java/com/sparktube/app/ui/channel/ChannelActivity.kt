@@ -15,6 +15,8 @@ import com.sparktube.app.data.ChannelEntry
 import com.sparktube.app.data.LocalStore
 import com.sparktube.app.data.YtRepository
 import com.sparktube.app.databinding.ActivityChannelBinding
+import com.sparktube.app.ui.common.SkeletonAdapter
+import com.sparktube.app.ui.common.showSkeleton
 import com.sparktube.app.ui.common.toUiModel
 import com.sparktube.app.ui.common.VideoAdapter
 import com.sparktube.app.ui.player.PlayerActivity
@@ -84,8 +86,9 @@ class ChannelActivity : AppCompatActivity() {
     }
 
     private fun load() {
-        binding.loading.isVisible = true
         binding.errorView.isVisible = false
+        // Skeleton cards instead of a centered spinner.
+        showSkeleton(binding.list, SkeletonAdapter.STYLE_VIDEO, count = 8)
         lifecycleScope.launch {
             try {
                 val channel = YtRepository.channelInfo(channelUrl)
@@ -102,13 +105,17 @@ class ChannelActivity : AppCompatActivity() {
                 page = nextPage
                 val known = items.map { it.url }.toSet()
                 items.addAll(videos.map { it.toUiModel() }.filter { it.url !in known })
+                binding.list.adapter = adapter
                 adapter.submitList(items.toList())
                 binding.emptyView.isVisible = items.isEmpty()
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                // Leaving the screen / reload: not an error.
+                throw e
             } catch (e: Exception) {
+                binding.list.adapter = adapter
+                adapter.submitList(emptyList())
                 binding.errorText.text = Formatters.friendlyException(e)
                 binding.errorView.isVisible = true
-            } finally {
-                binding.loading.isVisible = false
             }
         }
     }

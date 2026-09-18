@@ -20,6 +20,7 @@ import com.sparktube.app.R
 import com.sparktube.app.data.YtRepository
 import com.sparktube.app.databinding.FragmentMusicBinding
 import com.sparktube.app.playback.PlaybackCenter
+import com.sparktube.app.ui.common.SkeletonPulse
 import com.sparktube.app.ui.common.toQueueEntry
 import com.sparktube.app.ui.common.toUiModel
 import com.sparktube.app.ui.common.VideoUiModel
@@ -42,6 +43,9 @@ class MusicFragment : Fragment() {
     private val binding get() = _binding!!
 
     private var loadJob: kotlinx.coroutines.Job? = null
+
+    /** Pulse animators of the currently shown skeleton placeholders. */
+    private var skeletonPulse: SkeletonPulse? = null
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -87,19 +91,52 @@ class MusicFragment : Fragment() {
         // theme-change relaunch (view destroyed mid-coroutine) cannot NPE.
         val b = _binding ?: return
         loadJob = viewLifecycleOwner.lifecycleScope.launch {
-            b.loading.isVisible = true
             b.errorView.isVisible = false
+            // Skeleton placeholders instead of a spinner: the trending shelf
+            // and the popular list keep their shape while data loads.
+            showMusicSkeleton(b)
             try {
                 val result = YtRepository.musicTrending(AppPrefs.countryOrDefault)
                 val models = result.items.map { it.toUiModel() }
+                clearMusicSkeleton(b)
                 bindTrending(b, models)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                // A newer load() cancelled this one: not an error.
+                throw e
             } catch (e: Exception) {
+                clearMusicSkeleton(b)
                 b.errorText.text = Formatters.friendlyException(e)
                 b.errorView.isVisible = true
-            } finally {
-                b.loading.isVisible = false
             }
         }
+    }
+
+    /** Fills the shelf + popular list with pulsing placeholder cards. */
+    private fun showMusicSkeleton(b: FragmentMusicBinding) {
+        clearMusicSkeleton(b)
+        b.shelfTitle.isVisible = true
+        b.shelfScroller.isVisible = true
+        b.popularTitle.isVisible = true
+        val pulse = SkeletonPulse()
+        skeletonPulse = pulse
+        repeat(8) { i ->
+            val card = layoutInflater.inflate(R.layout.item_skeleton_music_card, b.shelfRow, false)
+            b.shelfRow.addView(card)
+            pulse.attach(card, i)
+        }
+        repeat(6) { i ->
+            val row = layoutInflater.inflate(R.layout.item_skeleton_row, b.popularList, false)
+            b.popularList.addView(row)
+            pulse.attach(row, i)
+        }
+    }
+
+    /** Stops the placeholder pulse; real binders clear the views themselves. */
+    private fun clearMusicSkeleton(b: FragmentMusicBinding) {
+        skeletonPulse?.cancel()
+        skeletonPulse = null
+        b.shelfRow.removeAllViews()
+        b.popularList.removeAllViews()
     }
 
     private fun bindTrending(b: FragmentMusicBinding, models: List<VideoUiModel>) {
