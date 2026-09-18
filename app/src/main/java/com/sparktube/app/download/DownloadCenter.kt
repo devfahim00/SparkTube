@@ -263,8 +263,8 @@ object DownloadCenter {
      * One parallel-accelerated file download. Small files (or servers without
      * range support) gracefully fall back to a single connection.
      */
-    private inner class DownloadJob(val url: String, val file: File) {
-        val id = jobIdSeq.incrementAndGet()
+    private class DownloadJob(val url: String, val file: File) {
+        val id = DownloadCenter.jobIdSeq.incrementAndGet()
 
         val progress = AtomicLong(0L)
         /** Total size, filled in once the first probe response arrives. */
@@ -281,7 +281,7 @@ object DownloadCenter {
             file.parentFile?.mkdirs()
             // Never resume a stale partial file: start clean.
             runCatching { if (file.exists()) file.delete() }
-            job = scope.launch {
+            job = DownloadCenter.scope.launch {
                 val ok = runCatching { downloadInternal() }
                     .getOrElse { false }
                 if (ok && !cancelled.get()) {
@@ -306,7 +306,7 @@ object DownloadCenter {
                 .build()
             val totalSize: Long
             val rangesSupported: Boolean
-            client.newCall(probe).execute().use { resp ->
+            DownloadCenter.client.newCall(probe).execute().use { resp ->
                 if (!resp.isSuccessful) return@withContext false
                 val contentRange = resp.header("Content-Range")
                 val acceptRanges = resp.header("Accept-Ranges")
@@ -358,7 +358,7 @@ object DownloadCenter {
         private suspend fun plainDownload(): Boolean = withContext(Dispatchers.IO) {
             try {
                 val request = newRequest().build()
-                client.newCall(request).execute().use { resp ->
+                DownloadCenter.client.newCall(request).execute().use { resp ->
                     if (!resp.isSuccessful) return@withContext false
                     val body = resp.body ?: return@withContext false
                     file.outputStream().use { out ->
@@ -384,14 +384,14 @@ object DownloadCenter {
         /** One contiguous byte range, written at its offset. Retries a few times. */
         private fun launchSegment(start: Long, end: Long): SegmentJob {
             val completedFlag = AtomicBoolean(false)
-            val segJob = scope.launch(Dispatchers.IO) {
+            val segJob = DownloadCenter.scope.launch(Dispatchers.IO) {
                 var attempt = 0
                 while (attempt <= CHUNK_RETRIES && !cancelled.get()) {
                     try {
                         val request = newRequest()
                             .header("Range", "bytes=$start-$end")
                             .build()
-                        client.newCall(request).execute().use { resp ->
+                        DownloadCenter.client.newCall(request).execute().use { resp ->
                             if (!resp.isSuccessful) throw IOException("HTTP ${resp.code}")
                             val body = resp.body ?: throw IOException("Empty body")
                             RandomAccessFile(file, "rw").use { raf ->
