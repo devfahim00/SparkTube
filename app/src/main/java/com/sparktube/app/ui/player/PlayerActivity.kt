@@ -651,6 +651,9 @@ class PlayerActivity : AppCompatActivity() {
             binding.subscribeButton.isVisible = false
             return
         }
+        // Show it again: onCreate hides the button until the catalog loads,
+        // and nothing ever set it back to visible, so it never re-appeared.
+        binding.subscribeButton.isVisible = true
         val subscribed = LocalStore.isSubscribed(this, channelUrl)
         binding.subscribeButton.text = getString(if (subscribed) R.string.subscribed else R.string.subscribe)
         binding.subscribeButton.setBackgroundResource(

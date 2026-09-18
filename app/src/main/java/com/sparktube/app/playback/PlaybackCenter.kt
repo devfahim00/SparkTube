@@ -23,6 +23,7 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.source.MergingMediaSource
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
+import android.os.SystemClock
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import androidx.media3.ui.PlayerView
@@ -41,6 +42,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.schabi.newpipe.extractor.stream.AudioStream
@@ -170,6 +173,26 @@ object PlaybackCenter {
     private var playerRef: ExoPlayer? = null
     private var resolveJob: Job? = null
 
+    // ----- Startup watchdog (auto quality downshift) -----
+
+    /**
+     * Big-video insurance. Bigger streams are exactly the ones whose bitrate
+     * outruns a slow / throttled connection, so "stuck on the loading spinner
+     * at the start, recovers after a while" was the steady state whenever the
+     * network could not feed 720p+. This watchdog watches the first seconds of
+     * every video: if the first frame does not appear in time, or the video
+     * stalls right after starting, it drops ONE quality tier and rebuilds the
+     * source (keeping the position mid-play) until playback actually flows.
+     */
+    private var watchdogJob: Job? = null
+    private var watchdogDownshifts = 0
+
+    /** Watchdog: ms without a first frame before dropping one quality tier. */
+    private val STARTUP_LIMIT_MS = 5_000L
+
+    /** Watchdog: ms of a post-start stall before dropping one quality tier. */
+    private val STALL_LIMIT_MS = 4_000L
+
     /** Items of the music playlist that have not been resolved yet. */
     private val pendingMusic = ConcurrentHashMap<String, QueueEntry>()
     private val musicItemId = AtomicLong(0L)
@@ -261,20 +284,21 @@ object PlaybackCenter {
                 // protocol: sparktube" and playback skips to the next track
                 // (which fails the same way).
                 .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
-                // Fast start WITHOUT the mid-play stall: a short start
-                // threshold made playback begin before the TCP window had
-                // ramped up, so the buffer ran dry and bigger videos froze
-                // right after opening. A 5s start cushion + 5s re-buffer
-                // threshold keeps playback continuous from the first second
-                // (the cushion is tiny on fast connections — only slow ramps
-                // notice it), while the deep min/max buffers ride out 4G
-                // fluctuations.
+                // Fast first frame WITHOUT the endless startup spinner on big
+                // videos: the start cushion only gates how much media must be
+                // buffered before playback begins, and a fat cushion (5s of a
+                // 720p+ stream is megabytes) on a slow-ramping connection kept
+                // the player "stuck" on the loading spinner for ages. 1s gets
+                // the first frame on screen fast; the STARTUP WATCHDOG below
+                // then watches the connection and auto-drops the quality when
+                // bandwidth can't keep up (stalls used to be papered over with
+                // a big cushion — now they actually get fixed).
                 .setLoadControl(
                     DefaultLoadControl.Builder()
                         .setBufferDurationsMs(
                             /* minBufferMs = */ 45_000,
                             /* maxBufferMs = */ 120_000,
-                            /* bufferForPlaybackMs = */ 5_000,
+                            /* bufferForPlaybackMs = */ 1_000,
                             /* bufferForPlaybackAfterRebufferMs = */ 5_000
                         )
                         .setBackBuffer(/* backBufferDurationMs = */ 30_000, /* retainBackBufferFromKeyframe = */ true)
@@ -548,6 +572,8 @@ object PlaybackCenter {
         // Explicit user action: give adaptive streams another chance even
         // if an earlier error had dropped us to a muxed fallback.
         usedFallback = false
+        // The user took manual control of quality — stop auto-downshifting.
+        watchdogJob?.cancel()
         rebuildSource(keepPosition = true)
     }
 
@@ -808,6 +834,90 @@ object PlaybackCenter {
             playWhenReady = true
             setPlaybackSpeed(speed)
         }
+        startStartupWatchdog()
+    }
+
+    /**
+     * Watches the freshly prepared video: [STARTUP_LIMIT_MS] without a first
+     * frame, or a [STALL_LIMIT_MS] stall during the first healthy stretch,
+     * drops one quality tier via [downshiftOneTier]. Retires itself once the
+     * connection has proven it can sustain the current quality.
+     */
+    private fun startStartupWatchdog() {
+        // Local files and background audio have no video bitrate to manage.
+        if (mode != Mode.VIDEO || audioOnlyMode) return
+        watchdogJob?.cancel()
+        watchdogDownshifts = 0
+        watchdogJob = scope.launch {
+            var preparedAt = SystemClock.elapsedRealtime()
+            var lastPollAt = preparedAt
+            var readyAt = 0L
+            var healthyMs = 0L
+            var stallSince = 0L
+            while (isActive) {
+                delay(400)
+                val now = SystemClock.elapsedRealtime()
+                val dt = (now - lastPollAt).coerceAtMost(1_000)
+                lastPollAt = now
+                val p = playerRef ?: break
+                when (p.playbackState) {
+                    Player.STATE_IDLE, Player.STATE_ENDED -> return@launch
+                    Player.STATE_READY -> {
+                        if (readyAt == 0L) readyAt = now
+                        if (p.isPlaying) {
+                            stallSince = 0L
+                            healthyMs += dt
+                            // Connection proven: 15s of uninterrupted playback.
+                            if (healthyMs >= 15_000) return@launch
+                        }
+                    }
+                    Player.STATE_BUFFERING -> {
+                        if (stallSince == 0L) stallSince = now
+                        val startup = readyAt == 0L
+                        val waited = now - if (startup) preparedAt else stallSince
+                        val limit = if (startup) STARTUP_LIMIT_MS else STALL_LIMIT_MS
+                        if (waited >= limit) {
+                            // Floor reached / out of shifts: stop watching.
+                            if (!downshiftOneTier(keepPosition = !startup)) return@launch
+                            preparedAt = SystemClock.elapsedRealtime()
+                            readyAt = 0L
+                            healthyMs = 0L
+                            stallSince = 0L
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Drops the video to the next lower available height (video-only or
+     * muxed). Returns false when already at the floor / out of shifts, which
+     * retires the watchdog — there is nothing left to try.
+     */
+    private fun downshiftOneTier(keepPosition: Boolean): Boolean {
+        if (watchdogDownshifts >= 2) return false
+        val c = catalog ?: return false
+        val current = effectiveSelectedHeight(c) ?: run {
+            // "Auto": the top video-only stream is what is playing.
+            c.videoOnly.firstOrNull()?.effectiveHeight() ?: c.muxed.firstOrNull()?.effectiveHeight()
+        } ?: return false
+        val lower = (c.videoOnly.map { it.effectiveHeight() } +
+            c.muxed.map { it.effectiveHeight() })
+            .distinct()
+            .filter { it < current }
+            .sortedDescending()
+        if (lower.isEmpty()) return false
+        val target = lower.first()
+        selectedHeight = target
+        autoPicked = false
+        // Honor the explicit height even if an earlier error had forced the
+        // muxed fallback (a failure here just re-triggers that fallback).
+        usedFallback = false
+        watchdogDownshifts++
+        rebuildSource(keepPosition = keepPosition)
+        notify { it.onNotice("Slow connection — switching to ${target}p") }
+        return true
     }
 
     private fun rebuildSource(keepPosition: Boolean) {
@@ -1156,6 +1266,7 @@ object PlaybackCenter {
     fun release() {
         resolveJob?.cancel()
         prefetchJob?.cancel()
+        watchdogJob?.cancel()
         scope.cancel()
         forwardingPlayer = null
         forwardingFor = null
