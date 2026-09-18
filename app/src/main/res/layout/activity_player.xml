@@ -43,6 +43,17 @@
         app:layout_constraintTop_toTopOf="parent"
         app:tint="@color/white" />
 
+    <ImageButton
+        android:id="@+id/scaleButton"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:background="@drawable/bg_icon_scrim"
+        android:contentDescription="@string/action_scale_mode"
+        android:src="@drawable/ic_tune"
+        app:layout_constraintEnd_toStartOf="@id/fullscreenButton"
+        app:layout_constraintTop_toTopOf="parent"
+        app:tint="@color/white" />
+
     <androidx.core.widget.NestedScrollView
         android:id="@+id/scrollArea"
         android:layout_width="0dp"

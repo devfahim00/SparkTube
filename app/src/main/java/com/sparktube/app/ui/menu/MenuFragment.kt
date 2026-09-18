@@ -245,9 +245,15 @@ class MenuFragment : Fragment() {
         root.addView(sheetTitle(getString(R.string.menu_video_settings)))
 
         root.addView(
-            sheetMenuRow(getString(R.string.settings_default_quality), qualityLabel()) {
+            sheetMenuRow(getString(R.string.settings_default_quality_wifi), wifiQualityLabel()) {
                 sheet.dismiss()
-                showDefaultQualityPicker()
+                showDefaultQualityPicker(forWifi = true)
+            }
+        )
+        root.addView(
+            sheetMenuRow(getString(R.string.settings_default_quality_data), dataQualityLabel()) {
+                sheet.dismiss()
+                showDefaultQualityPicker(forWifi = false)
             }
         )
         root.addView(
@@ -260,26 +266,39 @@ class MenuFragment : Fragment() {
                 showVideoSettingsSheet()
             }
         )
-        showSheet(sheet, root, peekDp = 260)
+        showSheet(sheet, root, peekDp = 300)
     }
 
-    private fun qualityLabel(): String =
-        if (AppPrefs.defaultVideoHeight == 0) {
+    private fun qualityValueLabel(height: Int): String =
+        if (height == 0) {
             getString(R.string.quality_auto_short)
         } else {
-            "${AppPrefs.defaultVideoHeight}p"
+            "${height}p"
         }
 
-    private fun showDefaultQualityPicker() {
+    private fun wifiQualityLabel(): String = qualityValueLabel(AppPrefs.defaultVideoHeightWifi)
+
+    private fun dataQualityLabel(): String = qualityValueLabel(AppPrefs.defaultVideoHeightData)
+
+    /** @param forWifi true = the Wi-Fi default, false = the mobile-data default. */
+    private fun showDefaultQualityPicker(forWifi: Boolean) {
         val choices = listOf(0, 2160, 1440, 1080, 720, 480, 360)
         val labels = choices.map {
             if (it == 0) getString(R.string.quality_auto) else "${it}p"
         }.toTypedArray()
-        val current = choices.indexOfFirst { it == AppPrefs.defaultVideoHeight }
+        val currentHeight = if (forWifi) AppPrefs.defaultVideoHeightWifi else AppPrefs.defaultVideoHeightData
+        val current = choices.indexOfFirst { it == currentHeight }
         AlertDialog.Builder(requireContext())
-            .setTitle(R.string.settings_default_quality)
+            .setTitle(
+                if (forWifi) R.string.settings_default_quality_wifi
+                else R.string.settings_default_quality_data
+            )
             .setSingleChoiceItems(labels, if (current >= 0) current else 0) { dialog, which ->
-                AppPrefs.defaultVideoHeight = choices[which]
+                if (forWifi) {
+                    AppPrefs.defaultVideoHeightWifi = choices[which]
+                } else {
+                    AppPrefs.defaultVideoHeightData = choices[which]
+                }
                 dialog.dismiss()
             }
             .setNegativeButton(android.R.string.cancel, null)

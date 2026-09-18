@@ -27,6 +27,8 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import androidx.media3.ui.R as Media3R
 import androidx.lifecycle.lifecycleScope
@@ -45,6 +47,7 @@ import com.sparktube.app.ui.channel.ChannelActivity
 import com.sparktube.app.ui.common.VideoAdapter
 import com.sparktube.app.ui.common.toQueueEntry
 import com.sparktube.app.ui.common.toUiModel
+import com.sparktube.app.util.AppPrefs
 import com.sparktube.app.util.Formatters
 import com.sparktube.app.util.Themes
 import com.sparktube.app.util.Thumbs
@@ -58,6 +61,7 @@ import kotlinx.coroutines.launch
  * speed and the dubbing audio track live inside the player's gear menu.
  * A swipe down on the video shrinks playback into the mini player.
  */
+@OptIn(UnstableApi::class)
 class PlayerActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityPlayerBinding
@@ -118,9 +122,10 @@ class PlayerActivity : AppCompatActivity() {
         // Watching a video should keep the screen on.
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-        // The fullscreen button only appears together with the player's own
-        // controls (gear / seek bar), like the official app.
+        // The fullscreen + scale buttons only appear together with the
+        // player's own controls (gear / seek bar), like the official app.
         binding.fullscreenButton.isVisible = false
+        binding.scaleButton.isVisible = false
         // Explicit object: a lambda would be ambiguous between the two
         // setControllerVisibilityListener overloads.
         binding.playerView.setControllerVisibilityListener(
@@ -157,6 +162,10 @@ class PlayerActivity : AppCompatActivity() {
 
         // Fullscreen toggle: portrait <-> landscape without restarting the activity.
         binding.fullscreenButton.setOnClickListener { toggleFullscreen() }
+
+        // Fullscreen scale mode: Fit -> Crop (fills the screen) -> Stretch.
+        binding.scaleButton.setOnClickListener { cycleScaleMode() }
+        applyScaleMode()
 
         gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
             override fun onDown(e: MotionEvent): Boolean {
@@ -217,10 +226,11 @@ class PlayerActivity : AppCompatActivity() {
         gear?.setOnClickListener { showVideoSettingsSheet() }
     }
 
-    /** Fullscreen button follows the built-in controller's visibility. */
+    /** Fullscreen + scale buttons follow the built-in controller's visibility. */
     private fun syncFullscreenButtonVisibility() {
-        binding.fullscreenButton.isVisible =
-            !isInPictureInPictureMode && controllerVisible
+        val visible = !isInPictureInPictureMode && controllerVisible
+        binding.fullscreenButton.isVisible = visible
+        binding.scaleButton.isVisible = visible
     }
 
     /** Real fullscreen: hide status + navigation bars while landscape. */
@@ -230,9 +240,52 @@ class PlayerActivity : AppCompatActivity() {
             controller.systemBarsBehavior =
                 WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             controller.hide(WindowInsetsCompat.Type.systemBars())
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                // Draw edge-to-edge past the camera cutout so landscape
+                // really fills the whole display.
+                val attrs = window.attributes
+                attrs.layoutInDisplayCutoutMode =
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+                window.attributes = attrs
+            }
         } else {
             controller.show(WindowInsetsCompat.Type.systemBars())
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                val attrs = window.attributes
+                attrs.layoutInDisplayCutoutMode =
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT
+                window.attributes = attrs
+            }
         }
+    }
+
+    // ----- Fullscreen scale mode -----
+
+    /** Applies the saved fullscreen scale preference (fit / crop / stretch). */
+    private fun applyScaleMode() {
+        val mode = when (AppPrefs.fullscreenScale) {
+            AppPrefs.SCALE_CROP -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+            AppPrefs.SCALE_STRETCH -> AspectRatioFrameLayout.RESIZE_MODE_FILL
+            else -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+        }
+        binding.playerView.resizeMode = mode
+    }
+
+    /** Cycles Fit -> Crop -> Stretch and applies + persists the choice. */
+    private fun cycleScaleMode() {
+        val next = when (AppPrefs.fullscreenScale) {
+            AppPrefs.SCALE_FIT -> AppPrefs.SCALE_CROP
+            AppPrefs.SCALE_CROP -> AppPrefs.SCALE_STRETCH
+            else -> AppPrefs.SCALE_FIT
+        }
+        AppPrefs.fullscreenScale = next
+        applyScaleMode()
+        val label = when (next) {
+            AppPrefs.SCALE_CROP -> getString(R.string.scale_crop)
+            AppPrefs.SCALE_STRETCH -> getString(R.string.scale_stretch)
+            else -> getString(R.string.scale_fit)
+        }
+        Toast.makeText(this, label, Toast.LENGTH_SHORT).show()
     }
 
     private fun toggleFullscreen() {
@@ -320,6 +373,7 @@ class PlayerActivity : AppCompatActivity() {
             // Show the video only: no back button, no fullscreen button, no page.
             binding.backButton.isVisible = false
             binding.fullscreenButton.isVisible = false
+            binding.scaleButton.isVisible = false
             binding.scrollArea.isVisible = false
             binding.loading.isVisible = false
             binding.errorView.isVisible = false
@@ -547,6 +601,11 @@ class PlayerActivity : AppCompatActivity() {
         binding.subscribeButton.text = getString(if (subscribed) R.string.subscribed else R.string.subscribe)
         binding.subscribeButton.setBackgroundResource(
             if (subscribed) R.drawable.bg_subscribe_on else R.drawable.bg_subscribe_off
+        )
+        // The "subscribed" pill has a light background in the light theme,
+        // so its label must flip to a dark color there (stays white on accent).
+        binding.subscribeButton.setTextColor(
+            getColor(if (subscribed) R.color.subscribe_on_text else R.color.white)
         )
     }
 

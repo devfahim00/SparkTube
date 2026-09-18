@@ -114,6 +114,10 @@
     <string name="channel_videos">Videos</string>
 
     <string name="action_fullscreen">Fullscreen</string>
+    <string name="action_scale_mode">Video scale mode</string>
+    <string name="scale_fit">Fit — whole video visible</string>
+    <string name="scale_crop">Crop — fills the screen</string>
+    <string name="scale_stretch">Stretch — fill screen, may distort</string>
     <string name="video_settings">Video settings</string>
     <string name="settings_quality_section">Quality</string>
     <string name="settings_speed_section">Playback speed</string>
@@ -147,6 +151,8 @@
     <string name="accent_teal">Teal</string>
     <string name="menu_video_settings">Video settings</string>
     <string name="settings_default_quality">Default video quality</string>
+    <string name="settings_default_quality_wifi">Default video quality (Wi-Fi)</string>
+    <string name="settings_default_quality_data">Default video quality (mobile data)</string>
     <string name="settings_autoplay_next_video">Autoplay next video</string>
     <string name="menu_music_settings">Music settings</string>
     <string name="settings_audio_quality">Audio quality</string>
