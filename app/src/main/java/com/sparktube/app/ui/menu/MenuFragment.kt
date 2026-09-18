@@ -19,11 +19,8 @@ import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.sparktube.app.BuildConfig
 import com.sparktube.app.R
 import com.sparktube.app.data.Countries
-import com.sparktube.app.data.LocalStore
-import com.sparktube.app.data.RecommendEngine
 import com.sparktube.app.data.YtRepository
 import com.sparktube.app.databinding.FragmentMenuBinding
-import com.sparktube.app.download.DownloadCenter
 import com.sparktube.app.util.AppPrefs
 import com.sparktube.app.util.BackupManager
 import com.sparktube.app.util.Themes
@@ -79,17 +76,9 @@ class MenuFragment : Fragment() {
                 )
             }
         }
-        binding.rowClearData.setOnClickListener { showClearDataSheet() }
-        binding.rowImportData.setOnClickListener {
-            runCatching {
-                importLauncher.launch(arrayOf("application/json"))
-            }
-        }
-        binding.rowExportData.setOnClickListener {
-            runCatching {
-                exportLauncher.launch("sparktube-backup.json")
-            }
-        }
+        // Import / export now live together in their own backup submenu
+        // (clear data moved into the general Settings page).
+        binding.rowBackup.setOnClickListener { showBackupSheet() }
         binding.rowCheckUpdate.setOnClickListener { checkForUpdate(manual = true) }
         binding.rowAbout.setOnClickListener { showAbout() }
 
@@ -166,90 +155,29 @@ class MenuFragment : Fragment() {
         sheet.show()
     }
 
-    // ----- Clear data -----
+    // ----- Backup / restore submenu -----
 
-    private fun showClearDataSheet() {
+    /** Dedicated import/export submenu: one menu entry, one sheet. */
+    private fun showBackupSheet() {
         val sheet = BottomSheetDialog(requireContext())
         val root = sheetRoot()
-        root.addView(sheetTitle(getString(R.string.menu_clear_data)))
+        root.addView(sheetTitle(getString(R.string.menu_backup_restore)))
 
-        root.addView(sheetMenuRow(getString(R.string.clear_history), "") {
-            confirm(
-                R.string.clear_history, R.string.clear_history_confirm,
-                R.string.history_cleared
-            ) {
-                LocalStore.clearHistory(it)
-                RecommendEngine.clearPlays(it)
+        root.addView(
+            sheetMenuRow(getString(R.string.menu_import), "") {
+                runCatching {
+                    importLauncher.launch(arrayOf("application/json"))
+                }
             }
-        })
-        root.addView(sheetMenuRow(getString(R.string.clear_music_history), "") {
-            confirm(
-                R.string.clear_music_history, R.string.clear_music_history_confirm,
-                R.string.music_history_cleared
-            ) {
-                LocalStore.clearMusicHistory(it)
+        )
+        root.addView(
+            sheetMenuRow(getString(R.string.menu_export), "") {
+                runCatching {
+                    exportLauncher.launch("sparktube-backup.json")
+                }
             }
-        })
-        root.addView(sheetMenuRow(getString(R.string.clear_search_history), "") {
-            confirm(
-                R.string.clear_search_history, R.string.clear_search_history_confirm,
-                R.string.search_history_cleared
-            ) {
-                RecommendEngine.clearSearches(it)
-            }
-        })
-        root.addView(sheetMenuRow(getString(R.string.clear_favorites), "") {
-            confirm(
-                R.string.clear_favorites, R.string.clear_favorites_confirm,
-                R.string.favorites_cleared
-            ) {
-                LocalStore.clearFavorites(it)
-            }
-        })
-        root.addView(sheetMenuRow(getString(R.string.clear_subscriptions), "") {
-            confirm(
-                R.string.clear_subscriptions, R.string.clear_subscriptions_confirm,
-                R.string.subscriptions_cleared
-            ) {
-                LocalStore.clearSubscriptions(it)
-            }
-        })
-        root.addView(sheetMenuRow(getString(R.string.clear_downloads), "") {
-            confirm(
-                R.string.clear_downloads, R.string.clear_downloads_confirm,
-                R.string.downloads_cleared
-            ) {
-                DownloadCenter.clearAll(it)
-            }
-        })
-        root.addView(sheetMenuRow(getString(R.string.clear_recommendations), "") {
-            confirm(
-                R.string.clear_recommendations, R.string.clear_recommendations_confirm,
-                R.string.recommendations_cleared
-            ) {
-                RecommendEngine.clearPlays(it)
-                RecommendEngine.clearSearches(it)
-            }
-        })
-        showSheet(sheet, root)
-    }
-
-    private fun confirm(
-        titleRes: Int,
-        messageRes: Int,
-        doneRes: Int,
-        action: (android.content.Context) -> Unit
-    ) {
-        AlertDialog.Builder(requireContext())
-            .setTitle(titleRes)
-            .setMessage(messageRes)
-            .setPositiveButton(android.R.string.ok) { _, _ ->
-                val ctx = context ?: return@setPositiveButton
-                action(ctx)
-                Toast.makeText(ctx, doneRes, Toast.LENGTH_SHORT).show()
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
+        )
+        showSheet(sheet, root, peekDp = 240)
     }
 
     // ----- Country -----

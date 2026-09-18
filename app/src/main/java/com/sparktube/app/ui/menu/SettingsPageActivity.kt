@@ -10,10 +10,15 @@ import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.sparktube.app.R
+import com.sparktube.app.data.LocalStore
+import com.sparktube.app.data.RecommendEngine
 import com.sparktube.app.databinding.ActivitySettingsPageBinding
+import com.sparktube.app.download.DownloadCenter
 import com.sparktube.app.playback.PlaybackCenter
 import com.sparktube.app.util.AppPrefs
 import com.sparktube.app.util.Themes
@@ -87,6 +92,113 @@ class SettingsPageActivity : AppCompatActivity() {
                 render()
             }
         )
+        // "Clear data" lives here now — it used to be a stray menu card.
+        content.addView(
+            menuRow(getString(R.string.menu_clear_data), "") {
+                showClearDataSheet()
+            }
+        )
+    }
+
+    // ----- Clear data (moved here from the menu) -----
+
+    private fun showClearDataSheet() {
+        val sheet = BottomSheetDialog(this)
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(16), dp(20), dp(28))
+        }
+        root.addView(
+            TextView(this).apply {
+                text = getString(R.string.menu_clear_data)
+                textSize = 18f
+                setTextColor(getColor(R.color.on_surface))
+                setTypeface(null, Typeface.BOLD)
+            }
+        )
+
+        fun clearRow(label: Int, title: Int, message: Int, done: Int, action: (Context) -> Unit) {
+            root.addView(
+                LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(dp(14), dp(14), dp(14), dp(14))
+                    background = GradientDrawable().apply {
+                        cornerRadius = dp(12).toFloat()
+                        setColor(Themes.elevatedColor(this@SettingsPageActivity))
+                    }
+                    layoutParams = LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+                    ).also { it.topMargin = dp(10) }
+                    setOnClickListener {
+                        confirm(title, message, done, action)
+                        sheet.dismiss()
+                    }
+                    addView(
+                        TextView(this@SettingsPageActivity).apply {
+                            text = getString(label)
+                            textSize = 15f
+                            setTextColor(getColor(R.color.on_surface))
+                            setTypeface(null, Typeface.BOLD)
+                        }
+                    )
+                }
+            )
+        }
+
+        clearRow(
+            R.string.clear_history, R.string.clear_history, R.string.clear_history_confirm,
+            R.string.history_cleared
+        ) { LocalStore.clearHistory(it); RecommendEngine.clearPlays(it) }
+        clearRow(
+            R.string.clear_music_history, R.string.clear_music_history,
+            R.string.clear_music_history_confirm, R.string.music_history_cleared
+        ) { LocalStore.clearMusicHistory(it) }
+        clearRow(
+            R.string.clear_search_history, R.string.clear_search_history,
+            R.string.clear_search_history_confirm, R.string.search_history_cleared
+        ) { RecommendEngine.clearSearches(it) }
+        clearRow(
+            R.string.clear_favorites, R.string.clear_favorites, R.string.clear_favorites_confirm,
+            R.string.favorites_cleared
+        ) { LocalStore.clearFavorites(it) }
+        clearRow(
+            R.string.clear_subscriptions, R.string.clear_subscriptions,
+            R.string.clear_subscriptions_confirm, R.string.subscriptions_cleared
+        ) { LocalStore.clearSubscriptions(it) }
+        clearRow(
+            R.string.clear_downloads, R.string.clear_downloads, R.string.clear_downloads_confirm,
+            R.string.downloads_cleared
+        ) { DownloadCenter.clearAll(it) }
+        clearRow(
+            R.string.clear_recommendations, R.string.clear_recommendations,
+            R.string.clear_recommendations_confirm, R.string.recommendations_cleared
+        ) {
+            RecommendEngine.clearPlays(it)
+            RecommendEngine.clearSearches(it)
+        }
+
+        val scroll = android.widget.ScrollView(this).apply { addView(root) }
+        sheet.setContentView(scroll)
+        sheet.behavior.peekHeight = dp(420)
+        sheet.show()
+    }
+
+    private fun confirm(
+        titleRes: Int,
+        messageRes: Int,
+        doneRes: Int,
+        action: (Context) -> Unit
+    ) {
+        AlertDialog.Builder(this)
+            .setTitle(titleRes)
+            .setMessage(messageRes)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                action(this)
+                Toast.makeText(this, doneRes, Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     // ----- Video -----

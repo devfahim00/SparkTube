@@ -136,6 +136,7 @@
     <!-- Search tabs + upload date filters -->
     <string name="search_tab_videos">Videos</string>
     <string name="search_tab_channels">Channels</string>
+    <string name="search_filters">Filters</string>
     <string name="filter_any">Any time</string>
     <string name="filter_today">Today</string>
     <string name="filter_this_week">This week</string>
@@ -190,6 +191,7 @@
     <string name="recommendations_cleared">Recommendations reset</string>
 
     <!-- Import / export -->
+    <string name="menu_backup_restore">Backup &amp; restore</string>
     <string name="menu_import">Import data</string>
     <string name="menu_export">Export data</string>
     <string name="import_done">Data imported</string>
