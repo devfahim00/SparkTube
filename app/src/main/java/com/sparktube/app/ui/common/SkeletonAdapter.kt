@@ -47,6 +47,9 @@ class SkeletonAdapter(
 
     override fun getItemCount(): Int = count
 
+    // Static placeholder views — nothing to bind per position.
+    override fun onBindViewHolder(holder: VH, position: Int) = Unit
+
     override fun onViewAttachedToWindow(holder: VH) {
         // Staggered breathing pulse; the offset per position keeps rows from
         // flashing in perfect sync (which reads as a single big blob).
@@ -65,13 +68,6 @@ class SkeletonAdapter(
         holder.animator = null
         holder.itemView.alpha = 1f
     }
-
-    override fun onDetachedFromRecyclerView(recyclerView: RecyclerView) {
-        recyclerView.childrenViews().forEach { it.alpha = 1f }
-    }
-
-    private fun RecyclerView.childrenViews(): List<View> =
-        (0 until recyclerView.childCount).map { recyclerView.getChildAt(it) }
 }
 
 /** Convenience: swap a RecyclerView to skeleton rows and return the adapter. */

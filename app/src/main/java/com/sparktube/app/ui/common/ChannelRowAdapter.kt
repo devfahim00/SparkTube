@@ -52,7 +52,8 @@ class ChannelRowAdapter(
         b.root.setOnClickListener { onClick(item) }
         if (onUnsubscribe != null) {
             b.unsubscribe.isVisible = true
-            b.unsubscribe.setOnClickListener { onUnsubscribe(item) }
+            // Nullable function property: no smart cast inside the lambda.
+            b.unsubscribe.setOnClickListener { onUnsubscribe?.invoke(item) }
         } else {
             // Search results only browse a channel — nothing to unsubscribe.
             b.unsubscribe.isVisible = false
