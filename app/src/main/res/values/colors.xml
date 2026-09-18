@@ -30,6 +30,14 @@
     <color name="sheet_bg">#FFFFFF</color>
     <color name="player_scrim">#B3000000</color>
 
+    <!-- Player action pills (favorite / share / download / background / PiP):
+         light pill on light theme, dark pill on dark theme. -->
+    <color name="action_pill_bg">#ECECF0</color>
+    <color name="action_pill_ripple">#1A000000</color>
+
+    <!-- "Subscribed" pill label: dark on the light pill, light on the dark pill. -->
+    <color name="subscribe_on_text">#1B1B1F</color>
+
     <color name="subscribe_on">#ECECF0</color>
     <color name="subscribe_off">#F03E3E</color>
 </resources>

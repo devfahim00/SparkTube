@@ -22,5 +22,12 @@
     <color name="mini_player_bg">#2E2E36</color>
     <color name="sheet_bg">#1D1D22</color>
 
+    <!-- Player action pills: dark surfaces in dark mode. -->
+    <color name="action_pill_bg">#242429</color>
+    <color name="action_pill_ripple">#33FFFFFF</color>
+
+    <!-- "Subscribed" pill label on the dark pill. -->
+    <color name="subscribe_on_text">#ECEDEF</color>
+
     <color name="subscribe_on">#242429</color>
 </resources>
