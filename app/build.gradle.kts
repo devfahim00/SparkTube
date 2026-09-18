@@ -61,6 +61,11 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // Backports modern java.* APIs to old Android runtimes. Without this,
+        // NewPipeExtractor's Collectors.toUnmodifiableList() (Java 10 API)
+        // crashes the app with NoSuchMethodError on Android 10 and below —
+        // those runtimes only ship the Java 8 stream API.
+        isCoreLibraryDesugaringEnabled = true
     }
 
     buildFeatures {
@@ -92,6 +97,10 @@ dependencies {
     // NewPipeExtractor (from JitPack) + OkHttp downloader
     implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.26.5")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    // Desugared java.* APIs (streams, toUnmodifiableList, time, …) for
+    // Android < 11 — see compileOptions.isCoreLibraryDesugaringEnabled.
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 
     // Image loading
     implementation("io.coil-kt:coil:2.6.0")
