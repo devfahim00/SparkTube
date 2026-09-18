@@ -221,7 +221,7 @@ object PlaybackCenter {
     fun effectiveSelectedHeight(c: StreamCatalog): Int? {
         selectedHeight?.let { return it }
         if (autoPicked) return null
-        val default = AppPrefs.defaultVideoHeight
+        val default = AppPrefs.defaultVideoHeightNow(appContext)
         if (default <= 0) return null
         val candidates = c.videoOnly.ifEmpty { c.muxed }
         return candidates.filter { it.effectiveHeight() <= default }
@@ -260,19 +260,22 @@ object PlaybackCenter {
                 // protocol: sparktube" and playback skips to the next track
                 // (which fails the same way).
                 .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
-                // Fast start: begin rendering as soon as 1s of media is
-                // buffered (2s after a mid-play stall) instead of the
-                // default 2.5s/5s thresholds, and keep 10s behind the play
-                // position so short backward seeks do not hit the network.
+                // Fast start WITHOUT the mid-play stall: the previous 1s
+                // start threshold made playback begin before the TCP window
+                // had ramped up, so the buffer ran dry ~2-4s in, playback
+                // froze once and then recovered. A slightly larger start
+                // cushion (2.2s) + a much larger re-buffer threshold (5s)
+                // removes that freeze, while the bigger max buffer keeps
+                // long playback smooth on fluctuating connections.
                 .setLoadControl(
                     DefaultLoadControl.Builder()
                         .setBufferDurationsMs(
-                            /* minBufferMs = */ 15_000,
-                            /* maxBufferMs = */ 50_000,
-                            /* bufferForPlaybackMs = */ 1_000,
-                            /* bufferForPlaybackAfterRebufferMs = */ 2_000
+                            /* minBufferMs = */ 30_000,
+                            /* maxBufferMs = */ 90_000,
+                            /* bufferForPlaybackMs = */ 2_200,
+                            /* bufferForPlaybackAfterRebufferMs = */ 5_000
                         )
-                        .setBackBuffer(/* backBufferDurationMs = */ 10_000, /* retainBackBufferFromKeyframe = */ true)
+                        .setBackBuffer(/* backBufferDurationMs = */ 30_000, /* retainBackBufferFromKeyframe = */ true)
                         .build()
                 )
                 .setAudioAttributes(
@@ -859,7 +862,7 @@ object PlaybackCenter {
         val height = selectedHeight
         return when {
             height == null -> {
-                val default = AppPrefs.defaultVideoHeight
+                val default = AppPrefs.defaultVideoHeightNow(appContext)
                 if (default > 0 && !autoPicked) {
                     // User default: the chosen quality, or the best one below
                     // it when the exact height is not available.
