@@ -20,8 +20,8 @@ android {
         applicationId = "com.sparktube.app"
         minSdk = 24
         targetSdk = 34
-        versionCode = 9
-        versionName = "1.3.3"
+        versionCode = 8
+        versionName = "1.3.2"
     }
 
     // Release signing: credentials come from environment variables so they
