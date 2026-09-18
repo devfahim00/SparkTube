@@ -13,22 +13,28 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.sparktube.app.R
+import com.sparktube.app.data.ChannelEntry
 import com.sparktube.app.data.LocalStore
 import com.sparktube.app.data.RecommendEngine
 import com.sparktube.app.data.YtRepository
 import com.sparktube.app.databinding.ActivitySearchBinding
 import com.sparktube.app.playback.PlaybackCenter
+import com.sparktube.app.ui.channel.ChannelActivity
+import com.sparktube.app.ui.common.ChannelRowAdapter
 import com.sparktube.app.ui.common.MusicRowAdapter
+import com.sparktube.app.ui.common.SkeletonAdapter
 import com.sparktube.app.ui.common.SuggestionAdapter
 import com.sparktube.app.ui.common.SuggestionRow
 import com.sparktube.app.ui.common.VideoAdapter
 import com.sparktube.app.ui.common.VideoUiModel
+import com.sparktube.app.ui.common.showSkeleton
 import com.sparktube.app.ui.common.toQueueEntry
 import com.sparktube.app.ui.common.toUiModel
 import com.sparktube.app.ui.music.NowPlayingActivity
 import com.sparktube.app.ui.player.PlayerActivity
 import com.sparktube.app.util.Formatters
 import com.sparktube.app.util.Themes
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -37,23 +43,40 @@ import org.schabi.newpipe.extractor.Page
 /**
  * Search screen for both videos and music. While the user types, keyword
  * suggestions from YouTube are shown; picking one runs the search.
+ *
+ * Video search has two result tabs — Videos and Channels — plus
+ * client-side upload-date filters (today / this week / this month) applied
+ * to the parsed "N days ago" labels of each result. While results load,
+ * skeleton rows stand in for the list instead of a spinner.
  */
 class SearchActivity : AppCompatActivity() {
+
+    /** Result tab shown on the video search screen. */
+    private enum class SearchTab { VIDEOS, CHANNELS }
 
     private lateinit var binding: ActivitySearchBinding
     private var musicMode: Boolean = false
     private var prefillQuery: String? = null
 
     private lateinit var videoAdapter: VideoAdapter
+    private lateinit var channelAdapter: ChannelRowAdapter
     private lateinit var musicAdapter: MusicRowAdapter
     private lateinit var suggestionAdapter: SuggestionAdapter
 
     private val items = mutableListOf<VideoUiModel>()
+    private val channelItems = mutableListOf<ChannelEntry>()
     private var page: Page? = null
     private var query: String = ""
     private var isLoading = false
+    private var searchInFlight = false
+    private var searchJob: Job? = null
     private var suggestionJob: Job? = null
     private var lastSuggestions: List<String> = emptyList()
+
+    private var tab: SearchTab = SearchTab.VIDEOS
+
+    /** Active upload-date filter for the Videos tab (null = any time). */
+    private var dateWindow: Formatters.DateWindow? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         Themes.apply(this)
@@ -66,11 +89,35 @@ class SearchActivity : AppCompatActivity() {
 
         if (musicMode) {
             binding.searchInput.hint = getString(R.string.search_music_hint)
+        } else {
+            // Tabs + date filters are a video-search feature only.
+            binding.tabRow.isVisible = true
+            binding.tabVideos.isSelected = true
+            binding.filterRow.isVisible = true
+            binding.filterAny.isSelected = true
+
+            binding.tabVideos.setOnClickListener { switchTab(SearchTab.VIDEOS) }
+            binding.tabChannels.setOnClickListener { switchTab(SearchTab.CHANNELS) }
+            binding.filterAny.setOnClickListener { pickDateFilter(null) }
+            binding.filterToday.setOnClickListener {
+                pickDateFilter(Formatters.DateWindow.TODAY)
+            }
+            binding.filterWeek.setOnClickListener {
+                pickDateFilter(Formatters.DateWindow.THIS_WEEK)
+            }
+            binding.filterMonth.setOnClickListener {
+                pickDateFilter(Formatters.DateWindow.THIS_MONTH)
+            }
         }
 
         videoAdapter = VideoAdapter(onClick = { model ->
             PlayerActivity.start(this, model)
         })
+        channelAdapter = ChannelRowAdapter(
+            onClick = { channel ->
+                ChannelActivity.start(this, channel.url, channel.name)
+            }
+        )
         musicAdapter = MusicRowAdapter(onClick = { model ->
             playMusic(model)
         })
@@ -165,13 +212,59 @@ class SearchActivity : AppCompatActivity() {
         Themes.recreateIfNeeded(this)
     }
 
+    // ----- Tabs + date filters -----
+
+    private fun switchTab(newTab: SearchTab) {
+        if (newTab == tab) return
+        tab = newTab
+        binding.tabVideos.isSelected = tab == SearchTab.VIDEOS
+        binding.tabChannels.isSelected = tab == SearchTab.CHANNELS
+        // Upload-date filters only make sense for videos.
+        binding.filterRow.isVisible = tab == SearchTab.VIDEOS
+        // Re-run the search for the new tab when there is a query; a
+        // half-finished old-tab search is cancelled by doSearch's new job.
+        if (query.isNotBlank()) {
+            searchJob?.cancel()
+            doSearch()
+        } else {
+            applyListAdapter()
+        }
+    }
+
+    private fun pickDateFilter(window: Formatters.DateWindow?) {
+        if (dateWindow == window) return
+        dateWindow = window
+        binding.filterAny.isSelected = window == null
+        binding.filterToday.isSelected = window == Formatters.DateWindow.TODAY
+        binding.filterWeek.isSelected = window == Formatters.DateWindow.THIS_WEEK
+        binding.filterMonth.isSelected = window == Formatters.DateWindow.THIS_MONTH
+        if (query.isNotBlank()) {
+            searchJob?.cancel()
+            doSearch()
+        }
+    }
+
+    /** Points the results list at the adapter of the active tab. */
+    private fun applyListAdapter() {
+        binding.list.adapter = when {
+            musicMode -> musicAdapter
+            tab == SearchTab.CHANNELS -> channelAdapter
+            else -> videoAdapter
+        }
+    }
+
+    // ----- Search -----
+
     private fun playMusic(model: VideoUiModel) {
         PlaybackCenter.playMusic(model.toQueueEntry(isMusic = true), radio = true)
         NowPlayingActivity.start(this)
     }
 
-    private fun itemCount(): Int =
-        if (musicMode) musicAdapter.itemCount else videoAdapter.itemCount
+    private fun itemCount(): Int = when {
+        musicMode -> musicAdapter.itemCount
+        tab == SearchTab.CHANNELS -> channelAdapter.itemCount
+        else -> videoAdapter.itemCount
+    }
 
     private fun queueSuggestions(text: String) {
         suggestionJob?.cancel()
@@ -214,7 +307,7 @@ class SearchActivity : AppCompatActivity() {
                 .take(10)
                 .map { SuggestionRow(it, isHistory = false) }
 
-        val showResults = items.isNotEmpty() || binding.loading.isVisible || binding.errorView.isVisible
+        val showResults = itemCount() > 0 || searchInFlight || binding.errorView.isVisible
         if (rows.isEmpty() || (showResults && rows.firstOrNull()?.text == query)) {
             binding.suggestionList.isVisible = false
         } else {
@@ -230,36 +323,91 @@ class SearchActivity : AppCompatActivity() {
         query = text
         page = null
         items.clear()
+        channelItems.clear()
         RecommendEngine.logSearch(this, text)
         binding.suggestionList.isVisible = false
-        if (musicMode) musicAdapter.submitList(emptyList()) else videoAdapter.submitList(emptyList())
-        binding.loading.isVisible = true
+        videoAdapter.submitList(emptyList())
+        channelAdapter.submitList(emptyList())
+        musicAdapter.submitList(emptyList())
         binding.errorView.isVisible = false
         binding.emptyView.isVisible = false
+        searchInFlight = true
 
-        lifecycleScope.launch {
+        // Skeleton rows stand in for the incoming results (video cards for
+        // the Videos tab, compact rows for channels / music).
+        val style = if (!musicMode && tab == SearchTab.VIDEOS) {
+            SkeletonAdapter.STYLE_VIDEO
+        } else {
+            SkeletonAdapter.STYLE_ROW
+        }
+        showSkeleton(binding.list, style, count = 8)
+
+        searchJob = lifecycleScope.launch {
+            val self = coroutineContext[Job]
             try {
-                val result = if (musicMode) {
-                    YtRepository.searchMusic(query, null)
-                } else {
-                    YtRepository.searchVideos(query, null)
+                when {
+                    musicMode -> {
+                        val result = YtRepository.searchMusic(query, null)
+                        items.addAll(result.items.map { it.toUiModel() })
+                        page = result.nextPage
+                        applyListAdapter()
+                        musicAdapter.submitList(items.toList())
+                        finishSearch(items.isNotEmpty(), musicEmpty)
+                    }
+                    tab == SearchTab.CHANNELS -> {
+                        val result = YtRepository.searchChannels(query, null)
+                        channelItems.addAll(result.items)
+                        page = result.nextPage
+                        applyListAdapter()
+                        channelAdapter.submitList(channelItems.toList())
+                        finishSearch(channelItems.isNotEmpty(), channelsEmpty)
+                    }
+                    else -> {
+                        val result = YtRepository.searchVideos(query, null)
+                        // Upload-date filter is applied client-side: NewPipe's
+                        // YouTube search has no server-side date parameter,
+                        // but every result carries a "N days ago" label we
+                        // can parse.
+                        val filtered = result.items.map { it.toUiModel() }
+                            .filter { passesDateFilter(it) }
+                        items.addAll(filtered)
+                        page = result.nextPage
+                        applyListAdapter()
+                        videoAdapter.submitList(items.toList())
+                        finishSearch(items.isNotEmpty(), noResultsEmpty)
+                    }
                 }
-                items.addAll(result.items.map { it.toUiModel() })
-                page = result.nextPage
-                if (musicMode) musicAdapter.submitList(items.toList()) else videoAdapter.submitList(items.toList())
-                binding.emptyView.isVisible = items.isEmpty()
-                if (items.isEmpty()) {
-                    binding.errorText.text =
-                        getString(if (musicMode) R.string.error_no_songs else R.string.error_no_results)
-                    binding.errorView.isVisible = true
-                }
+            } catch (e: CancellationException) {
+                // Switching tab / filter cancels the in-flight search: not
+                // an error, the replacement search is already running.
+                throw e
             } catch (e: Exception) {
+                // Drop the skeleton behind the error message.
+                applyListAdapter()
                 binding.errorText.text = Formatters.friendlyException(e)
                 binding.errorView.isVisible = true
             } finally {
-                binding.loading.isVisible = false
+                if (searchJob === self) searchInFlight = false
             }
         }
+    }
+
+    private val musicEmpty: String get() = getString(R.string.error_no_songs)
+    private val channelsEmpty: String get() = getString(R.string.error_no_channels)
+    private val noResultsEmpty: String get() = getString(R.string.error_no_results)
+
+    private fun finishSearch(anyResults: Boolean, emptyMessage: String) {
+        if (!anyResults) {
+            binding.emptyView.isVisible = true
+            binding.errorText.text = emptyMessage
+            binding.errorView.isVisible = true
+        }
+    }
+
+    /** Client-side upload-date check for one video result. */
+    private fun passesDateFilter(model: VideoUiModel): Boolean {
+        val window = dateWindow ?: return true
+        return Formatters.withinDateWindow(model.uploadDate, window)
     }
 
     private fun loadMore() {
@@ -267,15 +415,32 @@ class SearchActivity : AppCompatActivity() {
         isLoading = true
         lifecycleScope.launch {
             try {
-                val result = if (musicMode) {
-                    YtRepository.searchMusic(query, nextPage)
-                } else {
-                    YtRepository.searchVideos(query, nextPage)
+                when {
+                    musicMode -> {
+                        val result = YtRepository.searchMusic(query, nextPage)
+                        val known = items.map { it.url }.toSet()
+                        items.addAll(result.items.map { it.toUiModel() }.filter { it.url !in known })
+                        page = result.nextPage
+                        musicAdapter.submitList(items.toList())
+                    }
+                    tab == SearchTab.CHANNELS -> {
+                        val result = YtRepository.searchChannels(query, nextPage)
+                        val known = channelItems.map { it.url }.toSet()
+                        channelItems.addAll(result.items.filter { it.url !in known })
+                        page = result.nextPage
+                        channelAdapter.submitList(channelItems.toList())
+                    }
+                    else -> {
+                        val result = YtRepository.searchVideos(query, nextPage)
+                        val known = items.map { it.url }.toSet()
+                        items.addAll(
+                            result.items.map { it.toUiModel() }
+                                .filter { it.url !in known && passesDateFilter(it) }
+                        )
+                        page = result.nextPage
+                        videoAdapter.submitList(items.toList())
+                    }
                 }
-                val known = items.map { it.url }.toSet()
-                items.addAll(result.items.map { it.toUiModel() }.filter { it.url !in known })
-                page = result.nextPage
-                if (musicMode) musicAdapter.submitList(items.toList()) else videoAdapter.submitList(items.toList())
             } catch (e: Exception) {
                 page = null
             } finally {

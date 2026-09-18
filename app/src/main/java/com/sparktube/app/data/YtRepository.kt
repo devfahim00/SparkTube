@@ -13,6 +13,7 @@ import org.schabi.newpipe.extractor.Page
 import org.schabi.newpipe.extractor.ServiceList
 import org.schabi.newpipe.extractor.StreamingService
 import org.schabi.newpipe.extractor.channel.ChannelInfo
+import org.schabi.newpipe.extractor.channel.ChannelInfoItem
 import org.schabi.newpipe.extractor.channel.tabs.ChannelTabInfo
 import org.schabi.newpipe.extractor.channel.tabs.ChannelTabs
 import org.schabi.newpipe.extractor.kiosk.KioskInfo
@@ -26,6 +27,11 @@ import java.io.IOException
 
 data class PageResult(
     val items: List<StreamInfoItem>,
+    val nextPage: Page?
+)
+
+data class ChannelPageResult(
+    val items: List<ChannelEntry>,
     val nextPage: Page?
 )
 
@@ -226,6 +232,18 @@ object YtRepository {
             executeSearch(handler, page)
         }
 
+    /** Channel-only search for the Channels tab of the search screen. */
+    suspend fun searchChannels(query: String, page: Page? = null): ChannelPageResult =
+        withContext(Dispatchers.IO) {
+            NewPipe.setPreferredContentCountry(ContentCountry(AppPrefs.countryOrDefault))
+            val handler = service.searchQHFactory.fromQuery(
+                query,
+                listOf(YoutubeSearchQueryHandlerFactory.CHANNELS),
+                ""
+            )
+            executeChannelSearch(handler, page)
+        }
+
     /** Full stream details for playback. */
     suspend fun streamInfo(url: String): StreamInfo =
         withContext(Dispatchers.IO) {
@@ -308,5 +326,34 @@ object YtRepository {
             val result = SearchInfo.getMoreItems(service, handler, page)
             PageResult(LiveFilter.sanitize(result.items), result.nextPage)
         }
+    }
+
+    private fun executeChannelSearch(
+        handler: org.schabi.newpipe.extractor.linkhandler.SearchQueryHandler,
+        page: Page?
+    ): ChannelPageResult {
+        val raw: List<InfoItem>
+        val nextPage: Page?
+        if (page == null) {
+            val info = SearchInfo.getInfo(service, handler)
+            raw = info.relatedItems
+            nextPage = info.nextPage
+        } else {
+            val result = SearchInfo.getMoreItems(service, handler, page)
+            raw = result.items
+            nextPage = result.nextPage
+        }
+        val seen = HashSet<String>()
+        val channels = raw.filterIsInstance<ChannelInfoItem>()
+            .filter { !it.url.isNullOrBlank() && seen.add(it.url!!) }
+            .map { item ->
+                ChannelEntry(
+                    url = item.url.orEmpty(),
+                    name = item.name.orEmpty(),
+                    avatarUrl = item.thumbnails.maxByOrNull { it.height }?.url.orEmpty(),
+                    subscriberCount = item.subscriberCount
+                )
+            }
+        return ChannelPageResult(channels, nextPage)
     }
 }

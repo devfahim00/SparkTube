@@ -133,6 +133,18 @@
     <string name="on">On</string>
     <string name="off">Off</string>
 
+    <!-- Search tabs + upload date filters -->
+    <string name="search_tab_videos">Videos</string>
+    <string name="search_tab_channels">Channels</string>
+    <string name="filter_any">Any time</string>
+    <string name="filter_today">Today</string>
+    <string name="filter_this_week">This week</string>
+    <string name="filter_this_month">This month</string>
+    <string name="error_no_channels">No channels found</string>
+
+    <!-- Menu -->
+    <string name="menu_join_telegram">Join Telegram</string>
+
     <!-- Settings submenus -->
     <string name="menu_settings">Settings</string>
     <string name="settings_theme">Theme</string>

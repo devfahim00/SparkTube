@@ -3,6 +3,7 @@ package com.sparktube.app.ui.common
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.core.content.ContextCompat
+import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
@@ -12,10 +13,10 @@ import com.sparktube.app.data.ChannelEntry
 import com.sparktube.app.databinding.ItemChannelRowBinding
 import com.sparktube.app.util.Formatters
 
-/** Subscribed channel row used on the Library > Subscriptions tab. */
+/** Channel row: subscriptions list (with unsubscribe) or search results (plain). */
 class ChannelRowAdapter(
     private val onClick: (ChannelEntry) -> Unit,
-    private val onUnsubscribe: (ChannelEntry) -> Unit
+    private val onUnsubscribe: ((ChannelEntry) -> Unit)? = null
 ) : ListAdapter<ChannelEntry, ChannelRowAdapter.VH>(DIFF) {
 
     companion object {
@@ -49,6 +50,12 @@ class ChannelRowAdapter(
         }
 
         b.root.setOnClickListener { onClick(item) }
-        b.unsubscribe.setOnClickListener { onUnsubscribe(item) }
+        if (onUnsubscribe != null) {
+            b.unsubscribe.isVisible = true
+            b.unsubscribe.setOnClickListener { onUnsubscribe(item) }
+        } else {
+            // Search results only browse a channel — nothing to unsubscribe.
+            b.unsubscribe.isVisible = false
+        }
     }
 }
