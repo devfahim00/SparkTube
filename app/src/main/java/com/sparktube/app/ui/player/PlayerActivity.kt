@@ -257,13 +257,35 @@ class PlayerActivity : AppCompatActivity() {
     private fun syncFullscreenButtonVisibility() {
         val visible = !isInPictureInPictureMode && controllerVisible
         binding.fullscreenButton.isVisible = visible
-        binding.scaleButton.isVisible = visible
+        // Fit / Crop / Stretch is a fullscreen-only control: the portrait
+        // box always shows the full frame, so the button stays hidden there.
+        binding.scaleButton.isVisible = visible &&
+            resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    }
+
+    /** Latest top inset from the status bar / cutout (0 once bars are hidden). */
+    private var lastTopInset = 0
+
+    /**
+     * Keeps the whole video visible on the portrait watch page: the player
+     * box sits BELOW the status bar / punch-hole. The window being
+     * edge-to-edge (needed for fullscreen) used to slide the video under
+     * them, cutting off its top strip in normal mode. Landscape fullscreen
+     * keeps topMargin 0 so the video still renders under the (hidden) bars
+     * and the cutout — the punch-hole fullscreen fix. PiP gets 0 too (the
+     * floating window has no insets).
+     */
+    private fun applyPlayerTopInset() {
+        val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        binding.playerView.updateLayoutParams<ConstraintLayout.LayoutParams> {
+            topMargin = if (landscape || isInPictureInPictureMode) 0 else lastTopInset
+        }
     }
 
     /**
-     * Manual insets now that the window draws edge-to-edge: the video itself
-     * runs under the status bar / punch-hole, while the overlay buttons keep
-     * a safe distance and the page content clears the gesture bar.
+     * Manual insets now that the window draws edge-to-edge: the overlay
+     * buttons keep a safe distance from the status bar / cutout and the
+     * page content clears the gesture bar.
      */
     private fun applyWindowInsets() {
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { root, insets ->
@@ -286,6 +308,8 @@ class PlayerActivity : AppCompatActivity() {
                 topMargin = bars.top + dp(4)
                 marginEnd = endInset
             }
+            lastTopInset = bars.top
+            applyPlayerTopInset()
             binding.scrollArea.setPadding(
                 binding.scrollArea.paddingLeft,
                 binding.scrollArea.paddingTop,
@@ -310,12 +334,19 @@ class PlayerActivity : AppCompatActivity() {
 
     // ----- Fullscreen scale mode -----
 
-    /** Applies the saved fullscreen scale preference (fit / crop / stretch). */
+    /**
+     * Applies the scale preference (fit / crop / stretch). It is a FULLSCREEN
+     * setting: the portrait watch page is always RESIZE_MODE_FIT so no part
+     * of the video is ever cropped inside the normal player box.
+     */
     private fun applyScaleMode() {
-        val mode = when (AppPrefs.fullscreenScale) {
+        val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        val mode = if (landscape) when (AppPrefs.fullscreenScale) {
             AppPrefs.SCALE_CROP -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
             AppPrefs.SCALE_STRETCH -> AspectRatioFrameLayout.RESIZE_MODE_FILL
             else -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+        } else {
+            AspectRatioFrameLayout.RESIZE_MODE_FIT
         }
         binding.playerView.resizeMode = mode
     }
@@ -431,12 +462,15 @@ class PlayerActivity : AppCompatActivity() {
                 height = ViewGroup.LayoutParams.MATCH_PARENT
                 dimensionRatio = null
             }
+            // The PiP window has no insets — clear the portrait offset.
+            applyPlayerTopInset()
         } else {
             binding.scrollArea.isVisible = true
             binding.playerView.updateLayoutParams<ConstraintLayout.LayoutParams> {
                 height = 0
                 dimensionRatio = "16:9"
             }
+            applyPlayerTopInset()
             syncFullscreenButtonVisibility()
         }
     }
@@ -469,6 +503,11 @@ class PlayerActivity : AppCompatActivity() {
                 dimensionRatio = "16:9"
             }
         }
+        // Orientation-dependent state: the scale preference is
+        // fullscreen-only and the portrait box needs its status-bar offset.
+        applyScaleMode()
+        applyPlayerTopInset()
+        syncFullscreenButtonVisibility()
     }
 
     // ----- Binding -----
