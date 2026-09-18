@@ -2,6 +2,7 @@ package com.sparktube.app.ui.home
 
 import android.content.Intent
 import android.os.Bundle
+import android.os.SystemClock
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -23,6 +24,8 @@ import com.sparktube.app.ui.search.SearchActivity
 import com.sparktube.app.util.AppPrefs
 import com.sparktube.app.util.Formatters
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -33,8 +36,17 @@ class HomeFragment : Fragment() {
 
     private lateinit var adapter: VideoAdapter
     private var loadedCountry: String? = null
-    private var loadedGeneration: Int = -1
     private var loadJob: kotlinx.coroutines.Job? = null
+
+    /**
+     * Elapsed-realtime stamp of the last successful feed load. The feed now
+     * refreshes on a schedule (see maybeReload + the ticker in onViewCreated),
+     * usage: every search / video play used to bump the recommendation
+     * generation and silently reload the whole list the moment the user came
+     * back — scrolling position lost, skeletons flashing — for no visible
+     * benefit.
+     */
+    private var lastLoadedAt = 0L
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -63,6 +75,17 @@ class HomeFragment : Fragment() {
         }
 
         binding.retryButton.setOnClickListener { load() }
+
+        // One automatic refresh every 5 minutes while the feed is on screen.
+        // (The user can always pull-to-refresh manually.)
+        viewLifecycleOwner.lifecycleScope.launch {
+            while (isActive) {
+                delay(AUTO_REFRESH_MS)
+                if (_binding != null && isAdded && !isHidden && stale()) {
+                    load()
+                }
+            }
+        }
     }
 
     override fun onResume() {
@@ -80,10 +103,18 @@ class HomeFragment : Fragment() {
         }
     }
 
+    /** True when the feed content is older than the auto-refresh interval. */
+    private fun stale(): Boolean =
+        lastLoadedAt == 0L || SystemClock.elapsedRealtime() - lastLoadedAt >= AUTO_REFRESH_MS
+
+    /**
+     * Reload only when the country changed (different trending pool) or the
+     * feed is stale (> 5 min). Coming back from a search or the player does
+     * NOT reload anything anymore.
+     */
     private fun maybeReload() {
         val current = AppPrefs.countryOrDefault
-        val generation = RecommendEngine.generation(requireContext())
-        if (current != loadedCountry || generation != loadedGeneration) {
+        if (current != loadedCountry || stale()) {
             load()
         }
     }
@@ -91,7 +122,7 @@ class HomeFragment : Fragment() {
     private fun load() {
         val country = AppPrefs.countryOrDefault
         loadedCountry = country
-        loadedGeneration = RecommendEngine.generation(requireContext())
+        lastLoadedAt = SystemClock.elapsedRealtime()
 
         loadJob?.cancel()
         // Capture the binding: a theme change relaunches the activity, which
@@ -127,6 +158,9 @@ class HomeFragment : Fragment() {
                 adapter.submitList(emptyList())
                 b.errorText.text = Formatters.friendlyException(e)
                 b.errorView.isVisible = true
+                // Mark as "never loaded" so the next return to this screen
+                // retries automatically instead of waiting out the 5 min.
+                lastLoadedAt = 0L
             } finally {
                 b.swipe.isRefreshing = false
             }
@@ -136,5 +170,10 @@ class HomeFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+
+    private companion object {
+        /** The feed re-fetches itself at most once every 5 minutes. */
+        const val AUTO_REFRESH_MS = 5 * 60 * 1000L
     }
 }
