@@ -94,8 +94,23 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 
-    // NewPipeExtractor (from JitPack) + OkHttp downloader
-    implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.26.5")
+    // NewPipeExtractor — vendored jar, bytecode-patched for old-Android compatibility.
+    // v0.26.5 calls URLDecoder/URLEncoder .decode/.encode(String, Charset) (Java 10 API,
+    // available on Android only from API 33), which crashed with NoSuchMethodError on
+    // Android 10 and below. Core library desugaring does not cover java.net, and v0.26.5
+    // is the latest extractor release, so the two call sites in Utils.class were patched
+    // to use the (String, String) overloads that exist since API 1 — via the injected
+    // AndroidUrlCompat helper. See tools/extractor-patch/ to regenerate or re-patch
+    // a newer extractor version.
+    implementation(files("libs/newpipeextractor-0.26.5-android-compat.jar"))
+    // NewPipeExtractor's runtime dependencies, previously resolved transitively from
+    // the JitPack POM of com.github.TeamNewPipe:NewPipeExtractor:v0.26.5:
+    implementation("org.jsoup:jsoup:1.22.2")
+    implementation("org.mozilla:rhino:1.8.1")
+    implementation("org.mozilla:rhino-engine:1.8.1")
+    implementation("com.google.protobuf:protobuf-javalite:4.35.1")
+    implementation("com.google.code.findbugs:jsr305:3.0.2")
+    implementation("com.github.TeamNewPipe:nanojson:e9d656ddb49a412a5a0a5d5ef20ca7ef09549996")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     // Desugared java.* APIs (streams, toUnmodifiableList, time, …) for
