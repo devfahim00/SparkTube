@@ -32,6 +32,10 @@
             android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize|uiMode" />
 
         <activity
+            android:name=".ui.menu.SettingsPageActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".ui.search.SearchActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />

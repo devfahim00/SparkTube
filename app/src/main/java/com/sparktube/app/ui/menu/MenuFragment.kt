@@ -24,7 +24,6 @@ import com.sparktube.app.data.RecommendEngine
 import com.sparktube.app.data.YtRepository
 import com.sparktube.app.databinding.FragmentMenuBinding
 import com.sparktube.app.download.DownloadCenter
-import com.sparktube.app.playback.PlaybackCenter
 import com.sparktube.app.util.AppPrefs
 import com.sparktube.app.util.BackupManager
 import com.sparktube.app.util.Themes
@@ -59,9 +58,27 @@ class MenuFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         binding.rowCountry.setOnClickListener { showCountryPicker() }
-        binding.rowSettings.setOnClickListener { showSettingsSheet() }
-        binding.rowVideoSettings.setOnClickListener { showVideoSettingsSheet() }
-        binding.rowMusicSettings.setOnClickListener { showMusicSettingsSheet() }
+        // Settings now live on their own full pages (general / video / music)
+        // instead of cramped bottom sheets.
+        binding.rowSettings.setOnClickListener {
+            SettingsPageActivity.start(requireContext(), SettingsPageActivity.TYPE_GENERAL)
+        }
+        binding.rowVideoSettings.setOnClickListener {
+            SettingsPageActivity.start(requireContext(), SettingsPageActivity.TYPE_VIDEO)
+        }
+        binding.rowMusicSettings.setOnClickListener {
+            SettingsPageActivity.start(requireContext(), SettingsPageActivity.TYPE_MUSIC)
+        }
+        binding.rowTelegram.setOnClickListener {
+            runCatching {
+                startActivity(
+                    android.content.Intent(
+                        android.content.Intent.ACTION_VIEW,
+                        Uri.parse(TELEGRAM_URL)
+                    )
+                )
+            }
+        }
         binding.rowClearData.setOnClickListener { showClearDataSheet() }
         binding.rowImportData.setOnClickListener {
             runCatching {
@@ -147,212 +164,6 @@ class MenuFragment : Fragment() {
         sheet.setContentView(scroll)
         sheet.behavior.peekHeight = dp(peekDp)
         sheet.show()
-    }
-
-    // ----- Settings: theme + accent -----
-
-    private fun showSettingsSheet() {
-        val sheet = BottomSheetDialog(requireContext())
-        val root = sheetRoot()
-        root.addView(sheetTitle(getString(R.string.menu_settings)))
-
-        root.addView(
-            sheetMenuRow(getString(R.string.settings_theme), themeLabel()) {
-                sheet.dismiss()
-                showThemePicker()
-            }
-        )
-        root.addView(
-            sheetMenuRow(getString(R.string.settings_accent), accentLabel()) {
-                sheet.dismiss()
-                showAccentPicker()
-            }
-        )
-        root.addView(
-            sheetMenuRow(
-                getString(R.string.settings_animations),
-                if (AppPrefs.animations) getString(R.string.on) else getString(R.string.off)
-            ) {
-                AppPrefs.animations = !AppPrefs.animations
-                sheet.dismiss()
-                showSettingsSheet()
-            }
-        )
-        showSheet(sheet, root, peekDp = 300)
-    }
-
-    private fun themeLabel(): String = when (AppPrefs.theme) {
-        AppPrefs.THEME_LIGHT -> getString(R.string.theme_light)
-        AppPrefs.THEME_PITCH_BLACK -> getString(R.string.theme_pitch_black)
-        AppPrefs.THEME_AUTO -> getString(R.string.theme_auto)
-        else -> getString(R.string.theme_dark)
-    }
-
-    private fun showThemePicker() {
-        val options = listOf(
-            AppPrefs.THEME_AUTO to getString(R.string.theme_auto),
-            AppPrefs.THEME_DARK to getString(R.string.theme_dark),
-            AppPrefs.THEME_LIGHT to getString(R.string.theme_light),
-            AppPrefs.THEME_PITCH_BLACK to getString(R.string.theme_pitch_black)
-        )
-        val current = options.indexOfFirst { it.first == AppPrefs.theme }
-        AlertDialog.Builder(requireContext())
-            .setTitle(R.string.settings_theme)
-            .setSingleChoiceItems(options.map { it.second }.toTypedArray(), current) { dialog, which ->
-                Themes.setTheme(options[which].first, activity)
-                dialog.dismiss()
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
-    }
-
-    private fun accentLabel(): String = when (AppPrefs.accent) {
-        "blue" -> getString(R.string.accent_blue)
-        "purple" -> getString(R.string.accent_purple)
-        "green" -> getString(R.string.accent_green)
-        "orange" -> getString(R.string.accent_orange)
-        "pink" -> getString(R.string.accent_pink)
-        "teal" -> getString(R.string.accent_teal)
-        else -> getString(R.string.accent_red)
-    }
-
-    private fun showAccentPicker() {
-        val accents = listOf(
-            "red" to getString(R.string.accent_red),
-            "blue" to getString(R.string.accent_blue),
-            "purple" to getString(R.string.accent_purple),
-            "green" to getString(R.string.accent_green),
-            "orange" to getString(R.string.accent_orange),
-            "pink" to getString(R.string.accent_pink),
-            "teal" to getString(R.string.accent_teal)
-        )
-        val current = accents.indexOfFirst { it.first == AppPrefs.accent }
-        AlertDialog.Builder(requireContext())
-            .setTitle(R.string.settings_accent)
-            .setSingleChoiceItems(accents.map { it.second }.toTypedArray(), current) { dialog, which ->
-                Themes.setAccent(accents[which].first, activity)
-                dialog.dismiss()
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
-    }
-
-    // ----- Video settings -----
-
-    private fun showVideoSettingsSheet() {
-        val sheet = BottomSheetDialog(requireContext())
-        val root = sheetRoot()
-        root.addView(sheetTitle(getString(R.string.menu_video_settings)))
-
-        root.addView(
-            sheetMenuRow(getString(R.string.settings_default_quality_wifi), wifiQualityLabel()) {
-                sheet.dismiss()
-                showDefaultQualityPicker(forWifi = true)
-            }
-        )
-        root.addView(
-            sheetMenuRow(getString(R.string.settings_default_quality_data), dataQualityLabel()) {
-                sheet.dismiss()
-                showDefaultQualityPicker(forWifi = false)
-            }
-        )
-        root.addView(
-            sheetMenuRow(
-                getString(R.string.settings_autoplay_next_video),
-                if (AppPrefs.videoAutoplayNext) getString(R.string.on) else getString(R.string.off)
-            ) {
-                AppPrefs.videoAutoplayNext = !AppPrefs.videoAutoplayNext
-                sheet.dismiss()
-                showVideoSettingsSheet()
-            }
-        )
-        showSheet(sheet, root, peekDp = 300)
-    }
-
-    private fun qualityValueLabel(height: Int): String =
-        if (height == 0) {
-            getString(R.string.quality_auto_short)
-        } else {
-            "${height}p"
-        }
-
-    private fun wifiQualityLabel(): String = qualityValueLabel(AppPrefs.defaultVideoHeightWifi)
-
-    private fun dataQualityLabel(): String = qualityValueLabel(AppPrefs.defaultVideoHeightData)
-
-    /** @param forWifi true = the Wi-Fi default, false = the mobile-data default. */
-    private fun showDefaultQualityPicker(forWifi: Boolean) {
-        val choices = listOf(0, 2160, 1440, 1080, 720, 480, 360)
-        val labels = choices.map {
-            if (it == 0) getString(R.string.quality_auto) else "${it}p"
-        }.toTypedArray()
-        val currentHeight = if (forWifi) AppPrefs.defaultVideoHeightWifi else AppPrefs.defaultVideoHeightData
-        val current = choices.indexOfFirst { it == currentHeight }
-        AlertDialog.Builder(requireContext())
-            .setTitle(
-                if (forWifi) R.string.settings_default_quality_wifi
-                else R.string.settings_default_quality_data
-            )
-            .setSingleChoiceItems(labels, if (current >= 0) current else 0) { dialog, which ->
-                if (forWifi) {
-                    AppPrefs.defaultVideoHeightWifi = choices[which]
-                } else {
-                    AppPrefs.defaultVideoHeightData = choices[which]
-                }
-                dialog.dismiss()
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
-    }
-
-    // ----- Music settings -----
-
-    private fun showMusicSettingsSheet() {
-        val sheet = BottomSheetDialog(requireContext())
-        val root = sheetRoot()
-        root.addView(sheetTitle(getString(R.string.menu_music_settings)))
-
-        root.addView(
-            sheetMenuRow(getString(R.string.settings_audio_quality), audioQualityLabel()) {
-                sheet.dismiss()
-                showAudioQualityPicker()
-            }
-        )
-        root.addView(
-            sheetMenuRow(
-                getString(R.string.settings_autoplay_next_song),
-                if (AppPrefs.musicAutoplayNext) getString(R.string.on) else getString(R.string.off)
-            ) {
-                AppPrefs.musicAutoplayNext = !AppPrefs.musicAutoplayNext
-                PlaybackCenter.applyMusicAutoplay()
-                sheet.dismiss()
-                showMusicSettingsSheet()
-            }
-        )
-        showSheet(sheet, root, peekDp = 260)
-    }
-
-    private fun audioQualityLabel(): String = when (AppPrefs.musicAudioQuality) {
-        AppPrefs.AUDIO_QUALITY_MEDIUM -> getString(R.string.quality_medium)
-        AppPrefs.AUDIO_QUALITY_LOW -> getString(R.string.quality_low)
-        else -> getString(R.string.quality_high)
-    }
-
-    private fun showAudioQualityPicker() {
-        val options = listOf(
-            AppPrefs.AUDIO_QUALITY_HIGH to getString(R.string.quality_high),
-            AppPrefs.AUDIO_QUALITY_MEDIUM to getString(R.string.quality_medium),
-            AppPrefs.AUDIO_QUALITY_LOW to getString(R.string.quality_low)
-        )
-        val current = options.indexOfFirst { it.first == AppPrefs.musicAudioQuality }
-        AlertDialog.Builder(requireContext())
-            .setTitle(R.string.settings_audio_quality)
-            .setSingleChoiceItems(options.map { it.second }.toTypedArray(), current) { dialog, which ->
-                AppPrefs.musicAudioQuality = options[which].first
-                dialog.dismiss()
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
     }
 
     // ----- Clear data -----
@@ -558,5 +369,10 @@ class MenuFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+
+    private companion object {
+        /** Community link shown as its own menu card. */
+        const val TELEGRAM_URL = "https://t.me/projectredfox"
     }
 }
