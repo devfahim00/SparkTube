@@ -33,10 +33,10 @@ search results, not in the player.
 - Firebase Crashlytics + Analytics (BoM 34.19.0)
 - ViewBinding, Material 3
 
-A small red **bug button** on the Home header forces a test crash so the
-Crashlytics pipeline can be verified from the Firebase console. Crash
-reports are uploaded the next time the app starts, and crashes are not
-reported while a debugger is attached.
+A small red **bug button** on the Home header (debug builds only) forces a
+test crash so the Crashlytics pipeline can be verified from the Firebase
+console. Crash reports are uploaded the next time the app starts, and
+crashes are not reported while a debugger is attached.
 
 ## Building
 

@@ -10,6 +10,7 @@ import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.sparktube.app.BuildConfig
 import com.sparktube.app.R
 import com.sparktube.app.data.Countries
 import com.sparktube.app.data.RecommendEngine
@@ -76,11 +77,13 @@ class HomeFragment : Fragment() {
         }
 
         // Test-crash button: verifies the Firebase Crashlytics pipeline.
+        // DEBUG BUILDS ONLY — release users never see it.
         // Logs some context first (visible in the Crashlytics console under
         // "Logs" on the crash report), then forces an uncaught exception.
         // NOTE: Crashlytics only uploads the report after the app is opened
         // again, and it ignores crashes that happen while a debugger is
         // attached — install the APK and run it normally, not from the IDE.
+        binding.crashTestButton.isVisible = BuildConfig.DEBUG
         binding.crashTestButton.setOnClickListener {
             val crashlytics = FirebaseCrashlytics.getInstance()
             crashlytics.log("Test crash button tapped on Home")
