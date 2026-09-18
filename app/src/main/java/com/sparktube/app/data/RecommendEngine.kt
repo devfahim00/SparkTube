@@ -54,7 +54,7 @@ object RecommendEngine {
         val channelWeights: Map<String, Double>,
         /** Recently played / watched video urls (newest first). */
         val recentWatchedUrls: List<String>,
-        /** Videos whose related lists feed the personalized section (max 4). */
+        /** Videos whose related lists feed the personalized section (max [RELATED_SOURCE_COUNT]). */
         val relatedSources: List<String>,
         val hasSignal: Boolean
     )
