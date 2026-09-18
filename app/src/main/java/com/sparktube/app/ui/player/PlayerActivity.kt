@@ -22,6 +22,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -116,8 +117,27 @@ class PlayerActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         Themes.apply(this)
         super.onCreate(savedInstanceState)
+
+        // Edge-to-edge from the very first frame — THE punch-hole fix:
+        // LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES alone only lets the
+        // WINDOW cover the cutout area; with the default decor-fits-system-
+        // windows behaviour the framework still pads the content away from
+        // the cutout, so the notch stayed a black band in fullscreen.
+        // Going fully edge-to-edge + SHORT_EDGES lets the video really render
+        // under the punch-hole in every scale mode (insets are then applied
+        // manually to the overlay buttons below).
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            window.attributes = window.attributes.apply {
+                layoutInDisplayCutoutMode =
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            }
+        }
+
         binding = ActivityPlayerBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        applyWindowInsets()
 
         // Watching a video should keep the screen on.
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -136,6 +156,13 @@ class PlayerActivity : AppCompatActivity() {
                 }
             }
         )
+
+        // Watch-page chrome that depends on the resolved catalog: the action
+        // pills and the subscribe button only appear once the video is
+        // actually loaded (they used to flash in with placeholder labels
+        // the moment the screen opened).
+        binding.actionRow.isVisible = false
+        binding.subscribeButton.isVisible = false
 
         relatedAdapter = VideoAdapter(onClick = { model ->
             // Play inside this page so swipe/mini flow keeps working.
@@ -233,6 +260,42 @@ class PlayerActivity : AppCompatActivity() {
         binding.scaleButton.isVisible = visible
     }
 
+    /**
+     * Manual insets now that the window draws edge-to-edge: the video itself
+     * runs under the status bar / punch-hole, while the overlay buttons keep
+     * a safe distance and the page content clears the gesture bar.
+     */
+    private fun applyWindowInsets() {
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { root, insets ->
+            val bars = insets.getInsets(
+                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+            )
+            val rtl = root.layoutDirection == android.view.View.LAYOUT_DIRECTION_RTL
+            val startInset = if (rtl) bars.right else bars.left
+            val endInset = if (rtl) bars.left else bars.right
+
+            binding.backButton.updateLayoutParams<ConstraintLayout.LayoutParams> {
+                topMargin = bars.top + dp(4)
+                marginStart = dp(4) + startInset
+            }
+            binding.fullscreenButton.updateLayoutParams<ConstraintLayout.LayoutParams> {
+                topMargin = bars.top + dp(4)
+                marginEnd = endInset
+            }
+            binding.scaleButton.updateLayoutParams<ConstraintLayout.LayoutParams> {
+                topMargin = bars.top + dp(4)
+                marginEnd = endInset
+            }
+            binding.scrollArea.setPadding(
+                binding.scrollArea.paddingLeft,
+                binding.scrollArea.paddingTop,
+                binding.scrollArea.paddingRight,
+                bars.bottom + dp(24)
+            )
+            insets
+        }
+    }
+
     /** Real fullscreen: hide status + navigation bars while landscape. */
     private fun applyImmersive(landscape: Boolean) {
         val controller = WindowCompat.getInsetsController(window, window.decorView)
@@ -240,22 +303,8 @@ class PlayerActivity : AppCompatActivity() {
             controller.systemBarsBehavior =
                 WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             controller.hide(WindowInsetsCompat.Type.systemBars())
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                // Draw edge-to-edge past the camera cutout so landscape
-                // really fills the whole display.
-                val attrs = window.attributes
-                attrs.layoutInDisplayCutoutMode =
-                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
-                window.attributes = attrs
-            }
         } else {
             controller.show(WindowInsetsCompat.Type.systemBars())
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                val attrs = window.attributes
-                attrs.layoutInDisplayCutoutMode =
-                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT
-                window.attributes = attrs
-            }
         }
     }
 
@@ -454,6 +503,10 @@ class PlayerActivity : AppCompatActivity() {
     private fun bindCatalog() {
         val entry = PlaybackCenter.currentEntry ?: return
         val catalog = PlaybackCenter.catalog
+
+        // Pills + subscribe stay hidden until the catalog (uploader info,
+        // views, related list) has actually loaded for this video.
+        binding.actionRow.isVisible = catalog != null
 
         if (catalog != null) {
             binding.title.text = catalog.name.ifBlank { entry.title }

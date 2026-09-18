@@ -7,6 +7,7 @@ import androidx.annotation.OptIn
 import androidx.core.content.ContextCompat
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
@@ -260,19 +261,20 @@ object PlaybackCenter {
                 // protocol: sparktube" and playback skips to the next track
                 // (which fails the same way).
                 .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
-                // Fast start WITHOUT the mid-play stall: the previous 1s
-                // start threshold made playback begin before the TCP window
-                // had ramped up, so the buffer ran dry ~2-4s in, playback
-                // froze once and then recovered. A slightly larger start
-                // cushion (2.2s) + a much larger re-buffer threshold (5s)
-                // removes that freeze, while the bigger max buffer keeps
-                // long playback smooth on fluctuating connections.
+                // Fast start WITHOUT the mid-play stall: a short start
+                // threshold made playback begin before the TCP window had
+                // ramped up, so the buffer ran dry and bigger videos froze
+                // right after opening. A 5s start cushion + 5s re-buffer
+                // threshold keeps playback continuous from the first second
+                // (the cushion is tiny on fast connections — only slow ramps
+                // notice it), while the deep min/max buffers ride out 4G
+                // fluctuations.
                 .setLoadControl(
                     DefaultLoadControl.Builder()
                         .setBufferDurationsMs(
-                            /* minBufferMs = */ 30_000,
-                            /* maxBufferMs = */ 90_000,
-                            /* bufferForPlaybackMs = */ 2_200,
+                            /* minBufferMs = */ 45_000,
+                            /* maxBufferMs = */ 120_000,
+                            /* bufferForPlaybackMs = */ 5_000,
                             /* bufferForPlaybackAfterRebufferMs = */ 5_000
                         )
                         .setBackBuffer(/* backBufferDurationMs = */ 30_000, /* retainBackBufferFromKeyframe = */ true)
@@ -501,6 +503,10 @@ object PlaybackCenter {
             Mode.VIDEO -> if (queueIndex > 0) {
                 queueIndex--
                 resolveCurrent()
+            } else {
+                // Already at the top of the queue: restart the video
+                // (matches the behavior of the built-in previous button).
+                seekTo(0)
             }
             Mode.NONE -> Unit
         }
@@ -651,6 +657,12 @@ object PlaybackCenter {
     private fun resolveCurrent() {
         val entry = currentEntry ?: return
         resolveJob?.cancel()
+        // Drop the PREVIOUS video's catalog immediately: the watch page
+        // listens to onItemChanged and re-binds from the entry alone, so the
+        // action pills / subscribe / views of the old video must not linger
+        // (and must stay hidden) until the new catalog arrives.
+        catalog = null
+        notify { it.onItemChanged(currentEntry) }
         notify { it.onResolvingChanged(true) }
         resolveJob = scope.launch {
             try {
@@ -1074,12 +1086,69 @@ object PlaybackCenter {
 
     // ----- View attach helpers -----
 
+    /**
+     * Player-side wrapper handed to [PlayerView] so the controller's next /
+     * previous buttons reflect the APP queue (related videos, radio playlist)
+     * instead of the ExoPlayer playlist — video mode plays one MediaSource at
+     * a time, so without this the next button was permanently grayed out.
+     *
+     * NOTE: nested classes inside an `object` cannot use the `inner` modifier
+     * (Kotlin rejects it), so they reach the singleton's state through
+     * qualified access — same pattern as DownloadCenter.DownloadJob.
+     */
+    @OptIn(UnstableApi::class)
+    private class QueueForwardingPlayer(player: ExoPlayer) :
+        ForwardingPlayer(player) {
+
+        private fun queueHasNext(): Boolean = when (PlaybackCenter.mode) {
+            Mode.VIDEO, Mode.AUDIO ->
+                PlaybackCenter.queueIndex < PlaybackCenter.queue.size - 1
+            Mode.NONE -> false
+        }
+
+        override fun isCommandAvailable(command: Int): Boolean = when (command) {
+            Player.COMMAND_SEEK_TO_NEXT, Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM ->
+                queueHasNext() || super.isCommandAvailable(command)
+            else -> super.isCommandAvailable(command)
+        }
+
+        override fun hasNextMediaItem(): Boolean =
+            queueHasNext() || super.hasNextMediaItem()
+
+        override fun seekToNext() {
+            PlaybackCenter.next()
+        }
+
+        override fun seekToNextMediaItem() {
+            PlaybackCenter.next()
+        }
+
+        override fun seekToPrevious() {
+            PlaybackCenter.previous()
+        }
+
+        override fun seekToPreviousMediaItem() {
+            PlaybackCenter.previous()
+        }
+    }
+
+    /** The wrapper for the currently attached PlayerView + the raw player it wraps. */
+    private var forwardingPlayer: QueueForwardingPlayer? = null
+    private var forwardingFor: ExoPlayer? = null
+
+    @OptIn(UnstableApi::class)
     fun attachView(view: PlayerView) {
-        view.player = playerRef
+        val raw = playerRef ?: return
+        val fwd = forwardingPlayer?.takeIf { forwardingFor === raw }
+            ?: QueueForwardingPlayer(raw).also {
+                forwardingPlayer = it
+                forwardingFor = raw
+            }
+        view.player = fwd
     }
 
     fun detachView(view: PlayerView) {
-        if (view.player === playerRef) {
+        if (view.player === forwardingPlayer) {
             view.player = null
         }
     }
@@ -1088,6 +1157,8 @@ object PlaybackCenter {
         resolveJob?.cancel()
         prefetchJob?.cancel()
         scope.cancel()
+        forwardingPlayer = null
+        forwardingFor = null
         playerRef?.release()
         playerRef = null
     }

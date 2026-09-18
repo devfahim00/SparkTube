@@ -23,7 +23,6 @@
         android:layout_width="48dp"
         android:layout_height="48dp"
         android:layout_marginStart="4dp"
-        android:layout_marginTop="28dp"
         android:background="@drawable/bg_icon_scrim"
         android:contentDescription="@string/app_name"
         android:src="@drawable/ic_arrow_back"
@@ -92,6 +91,7 @@
                 android:textSize="12sp" />
 
             <HorizontalScrollView
+                android:id="@+id/actionRow"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
