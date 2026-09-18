@@ -29,7 +29,13 @@ object RecommendEngine {
     private const val KEY_PLAYS = "plays_json"
     private const val KEY_GEN = "generation"
 
-    private const val MAX_PLAYS = 60
+    private const val MAX_PLAYS = 120
+
+    /** Half-life (days) of a play signal: older plays count progressively less. */
+    private const val PLAY_HALF_LIFE_DAYS = 14.0
+
+    /** How many recently watched videos feed the "because you watched" zone. */
+    private const val RELATED_SOURCE_COUNT = 6
 
     /** One logged play of a video (count = how many times it was played). */
     private data class Play(
@@ -141,18 +147,38 @@ object RecommendEngine {
             boostChannel(fav.uploader, 2.0)
         }
 
+        // Downloads: a saved file is the strongest possible interest vote.
+        LocalStore.downloads(ctx).filter { it.status == com.sparktube.app.download.DownloadCenter.STATUS_DONE }
+            .forEach { record ->
+                boostKeywords(record.title, 2.8)
+                boostChannel(record.uploader, 3.0)
+            }
+
         // Subscriptions: strongest channel signal.
         LocalStore.subscriptions(ctx).forEach { sub ->
             boostChannel(sub.name, 4.0)
             boostKeywords(sub.name, 1.5)
         }
 
-        // Play log: counts and recency matter.
+        // Play log: counts, and time decay so the profile follows the user's
+        // current taste instead of everything they ever opened.
+        val nowMs = now()
         val recentUrls = LinkedHashSet<String>()
-        readPlays(ctx).forEach { play ->
-            boostKeywords(play.title, 1.2 + 0.3 * ln(1.0 + play.count))
-            boostChannel(play.uploader, 1.5)
+        readPlays(ctx).forEachIndexed { index, play ->
+            val ageDays = ((nowMs - play.ts).coerceAtLeast(0L)) / 86_400_000.0
+            val freshness = 0.5.pow(ageDays / PLAY_HALF_LIFE_DAYS)
+            val positional = decay(index)
+            val w = (1.2 + 0.3 * ln(1.0 + play.count)) * freshness * positional
+            boostKeywords(play.title, w)
+            boostChannel(play.uploader, 1.5 * freshness)
             if (play.url.startsWith("http")) recentUrls.add(play.url)
+        }
+
+        // Music history: songs the user actually listened to.
+        LocalStore.musicHistory(ctx).take(40).forEachIndexed { index, song ->
+            boostKeywords(song.title, 1.1 * decay(index))
+            boostChannel(song.uploader, 1.3 * decay(index))
+            if (song.url.startsWith("http")) recentUrls.add(song.url)
         }
 
         // Watch history: a weaker, broader echo of the play log.
@@ -167,7 +193,7 @@ object RecommendEngine {
             keywordWeights = keywords,
             channelWeights = channels,
             recentWatchedUrls = recent,
-            relatedSources = recent.take(4),
+            relatedSources = recent.take(RELATED_SOURCE_COUNT),
             hasSignal = keywords.isNotEmpty() || channels.isNotEmpty()
         )
     }
@@ -176,11 +202,24 @@ object RecommendEngine {
     fun score(item: StreamInfoItem, snap: Snapshot): Double {
         var score = 0.0
         val title = item.name.orEmpty()
+        var titleTokens = 0
         if (title.isNotBlank()) {
-            tokenize(title).forEach { token -> score += snap.keywordWeights[token] ?: 0.0 }
+            tokenize(title).forEach { token ->
+                titleTokens++
+                score += snap.keywordWeights[token] ?: 0.0
+            }
         }
         item.uploaderName?.trim()?.lowercase()?.let { channel ->
-            snap.channelWeights[channel]?.let { score += it }
+            snap.channelWeights[channel]?.let { channelWeight ->
+                // Channel affinity is the most reliable signal: give it extra
+                // weight relative to loose keyword hits.
+                score += channelWeight * 1.4
+            }
+        }
+        // Long titles accumulate keyword hits by pure volume; normalize a
+        // little so a 20-word clickbait title does not outrank a real match.
+        if (titleTokens > 8) {
+            score /= (titleTokens / 8.0)
         }
         return score
     }

@@ -96,21 +96,23 @@ object YtRepository {
             blended
         }
 
-    /** Max "because you watched" picks injected at the top of the feed. */
-    private const val MAX_RELATED_PICKS = 6
+    /** Personalized picks pinned to the top of the home feed (user-usage based). */
+    private const val PERSONALIZED_SLOTS = 6
 
-    /** Max items per channel in the re-ranked feed (variety guard). */
+    /** Max items per channel in the feed (variety guard). */
     private const val MAX_PER_CHANNEL = 3
 
     /** Budget for the parallel related-list fetches, so the feed stays snappy. */
     private const val RELATED_FETCH_TIMEOUT_MS = 10_000L
 
     /**
-     * Personalized home feed built on top of the trending blend:
-     *  1. candidates from the related lists of recently watched videos
-     *     ("because you watched …"), fetched in parallel with a time budget;
-     *  2. trending re-ranked against the user's interest profile with a
-     *     per-channel cap and stable order for zero-score items.
+     * Personalized home feed:
+     *  1. the first [PERSONALIZED_SLOTS] rows are chosen purely from the
+     *     user's own usage ("because you watched …" candidates, topped up
+     *     with the best profile-matching trending items);
+     *  2. everything after them is a randomized discovery zone — the
+     *     region's trending mix, shuffled on every load, with a per-channel
+     *     cap so no single channel floods the list.
      *
      * Fresh installs (no signals) fall back to the plain trending blend.
      */
@@ -144,31 +146,47 @@ object YtRepository {
             }
         }
 
-        // Best related picks first — the strongest "for you" zone.
-        val topRelated = candidates
+        // 2. Personalized zone: exactly PERSONALIZED_SLOTS rows driven by the
+        //    user's profile — best related picks first, then the strongest
+        //    profile-matching trending items fill any empty slots.
+        val personalized = mutableListOf<StreamInfoItem>()
+        val pickedUrls = HashSet<String>()
+        candidates
             .map { it to RecommendEngine.score(it, snap) }
             .sortedByDescending { (_, score) -> score }
-            .take(MAX_RELATED_PICKS)
-            .map { (item, _) -> item }
-
-        // 2. Trending re-ranked: stable sort, so zero-score items keep the
-        //    kiosk blend order while profile matches bubble to the top.
-        val perChannel = HashMap<String, Int>()
-        val reRanked = trending
-            .sortedByDescending { RecommendEngine.score(it, snap) }
-            .filter { item ->
-                val key = item.uploaderName?.trim()?.lowercase().orEmpty()
-                    .ifEmpty { item.url }
-                val count = perChannel.getOrDefault(key, 0)
-                if (count >= MAX_PER_CHANNEL) {
-                    false
-                } else {
-                    perChannel[key] = count + 1
-                    true
-                }
+            .take(PERSONALIZED_SLOTS)
+            .forEach { (item, _) ->
+                pickedUrls.add(item.url)
+                personalized.add(item)
             }
+        if (personalized.size < PERSONALIZED_SLOTS) {
+            trending
+                .filter { it.url !in pickedUrls }
+                .sortedByDescending { RecommendEngine.score(it, snap) }
+                .take(PERSONALIZED_SLOTS - personalized.size)
+                .forEach { item ->
+                    pickedUrls.add(item.url)
+                    personalized.add(item)
+                }
+        }
 
-        topRelated + reRanked
+        // 3. Random zone: everything else, shuffled fresh on every load,
+        //    with the per-channel variety cap applied first.
+        val rest = trending.filter { it.url !in pickedUrls }
+        val perChannel = HashMap<String, Int>()
+        val cappedRest = rest.filter { item ->
+            val key = item.uploaderName?.trim()?.lowercase().orEmpty()
+                .ifEmpty { item.url }
+            val count = perChannel.getOrDefault(key, 0)
+            if (count >= MAX_PER_CHANNEL) {
+                false
+            } else {
+                perChannel[key] = count + 1
+                true
+            }
+        }.shuffled()
+
+        personalized + cappedRest
     }
 
     /**
