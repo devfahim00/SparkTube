@@ -135,7 +135,11 @@ class ParallelRangeDataSource private constructor(
         maxOf(parallelism + 2, (MAX_WINDOW_BYTES / chunkSize).toInt())
 
     // ---- session state (guarded by [lock] unless noted) ----
-    private val lock = Any()
+    // java.lang.Object (not kotlin.Any): Kotlin's Any hides the Java
+    // monitor methods wait()/notify()/notifyAll() that the worker/read
+    // hand-off below is built on.
+    @Suppress("PLATFORM_CLASS_MIGRATION")
+    private val lock = Object()
     private val transferListeners = ArrayList<TransferListener>()
 
     private var openedSpec: DataSpec? = null
@@ -171,7 +175,7 @@ class ParallelRangeDataSource private constructor(
         val eligible = scheme == "http" || scheme == "https" || scheme == "sparktube"
         val small = dataSpec.length != C.LENGTH_UNSET.toLong() &&
             dataSpec.length <= chunkSize
-        if (!eligible || small || dataSpec.uriPositionOverride != null) {
+        if (!eligible || small) {
             val ds = createUpstream()
             passthrough = ds
             return ds.open(dataSpec)
