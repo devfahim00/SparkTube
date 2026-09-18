@@ -143,18 +143,4 @@
         <item name="android:textSize">13sp</item>
         <item name="android:textStyle">bold</item>
     </style>
-
-    <!-- Search upload-date filter chips; state-driven visuals come from
-         bg_chip (selected) / bg_chip_normal (plain) via isSelected. -->
-    <style name="SearchFilterChip">
-        <item name="android:layout_width">wrap_content</item>
-        <item name="android:layout_height">wrap_content</item>
-        <item name="android:background">@drawable/bg_chip</item>
-        <item name="android:paddingStart">14dp</item>
-        <item name="android:paddingTop">7dp</item>
-        <item name="android:paddingEnd">14dp</item>
-        <item name="android:paddingBottom">7dp</item>
-        <item name="android:textColor">@color/on_surface</item>
-        <item name="android:textSize">13sp</item>
-    </style>
 </resources>

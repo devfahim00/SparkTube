@@ -7,6 +7,7 @@ import android.text.Editable
 import android.text.TextWatcher
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
@@ -46,8 +47,10 @@ import org.schabi.newpipe.extractor.Page
  *
  * Video search has two result tabs — Videos and Channels — plus
  * client-side upload-date filters (today / this week / this month) applied
- * to the parsed "N days ago" labels of each result. While results load,
- * skeleton rows stand in for the list instead of a spinner.
+ * to the parsed "N days ago" labels of each result. The filters live behind
+ * a dedicated funnel button in the search bar (tinted to the accent colour
+ * while a filter is active) instead of a permanent row of chips. While
+ * results load, skeleton rows stand in for the list instead of a spinner.
  */
 class SearchActivity : AppCompatActivity() {
 
@@ -90,24 +93,14 @@ class SearchActivity : AppCompatActivity() {
         if (musicMode) {
             binding.searchInput.hint = getString(R.string.search_music_hint)
         } else {
-            // Tabs + date filters are a video-search feature only.
+            // Tabs + the filter button are a video-search feature only.
             binding.tabRow.isVisible = true
             binding.tabVideos.isSelected = true
-            binding.filterRow.isVisible = true
-            binding.filterAny.isSelected = true
+            binding.filterButton.isVisible = true
 
             binding.tabVideos.setOnClickListener { switchTab(SearchTab.VIDEOS) }
             binding.tabChannels.setOnClickListener { switchTab(SearchTab.CHANNELS) }
-            binding.filterAny.setOnClickListener { pickDateFilter(null) }
-            binding.filterToday.setOnClickListener {
-                pickDateFilter(Formatters.DateWindow.TODAY)
-            }
-            binding.filterWeek.setOnClickListener {
-                pickDateFilter(Formatters.DateWindow.THIS_WEEK)
-            }
-            binding.filterMonth.setOnClickListener {
-                pickDateFilter(Formatters.DateWindow.THIS_MONTH)
-            }
+            binding.filterButton.setOnClickListener { showFilterPicker() }
         }
 
         videoAdapter = VideoAdapter(onClick = { model ->
@@ -212,7 +205,7 @@ class SearchActivity : AppCompatActivity() {
         Themes.recreateIfNeeded(this)
     }
 
-    // ----- Tabs + date filters -----
+    // ----- Tabs + date filter -----
 
     private fun switchTab(newTab: SearchTab) {
         if (newTab == tab) return
@@ -220,7 +213,7 @@ class SearchActivity : AppCompatActivity() {
         binding.tabVideos.isSelected = tab == SearchTab.VIDEOS
         binding.tabChannels.isSelected = tab == SearchTab.CHANNELS
         // Upload-date filters only make sense for videos.
-        binding.filterRow.isVisible = tab == SearchTab.VIDEOS
+        binding.filterButton.isVisible = tab == SearchTab.VIDEOS
         // Re-run the search for the new tab when there is a query; a
         // half-finished old-tab search is cancelled by doSearch's new job.
         if (query.isNotBlank()) {
@@ -231,13 +224,39 @@ class SearchActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * The dedicated Filters button: one dialog with the four upload-date
+     * windows — no permanent chip row cluttering the screen.
+     */
+    private fun showFilterPicker() {
+        val options = listOf(
+            null to getString(R.string.filter_any),
+            Formatters.DateWindow.TODAY to getString(R.string.filter_today),
+            Formatters.DateWindow.THIS_WEEK to getString(R.string.filter_this_week),
+            Formatters.DateWindow.THIS_MONTH to getString(R.string.filter_this_month)
+        )
+        val current = options.indexOfFirst { it.first == dateWindow }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.search_filters)
+            .setSingleChoiceItems(
+                options.map { it.second }.toTypedArray(),
+                if (current >= 0) current else 0
+            ) { dialog, which ->
+                dialog.dismiss()
+                pickDateFilter(options[which].first)
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
     private fun pickDateFilter(window: Formatters.DateWindow?) {
         if (dateWindow == window) return
         dateWindow = window
-        binding.filterAny.isSelected = window == null
-        binding.filterToday.isSelected = window == Formatters.DateWindow.TODAY
-        binding.filterWeek.isSelected = window == Formatters.DateWindow.THIS_WEEK
-        binding.filterMonth.isSelected = window == Formatters.DateWindow.THIS_MONTH
+        // Accent tint while a filter is active, muted otherwise.
+        binding.filterButton.setColorFilter(
+            if (window == null) getColor(R.color.on_surface_variant)
+            else Themes.accentColor(this)
+        )
         if (query.isNotBlank()) {
             searchJob?.cancel()
             doSearch()
