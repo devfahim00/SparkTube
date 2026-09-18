@@ -35,6 +35,7 @@ import com.sparktube.app.data.VideoEntry
 import com.sparktube.app.data.YtRepository
 import com.sparktube.app.download.DownloadCenter
 import com.sparktube.app.net.OkHttpDownloader
+import com.sparktube.app.net.ParallelRangeDataSource
 import com.sparktube.app.util.AppPrefs
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.CoroutineScope
@@ -1169,7 +1170,18 @@ object PlaybackCenter {
                 forceInitialRangeHeader(dataSpec)
             }
         }
-        DefaultDataSource.Factory(appContext, resolving)
+        // MULTI-THREADED PLAYBACK: a single connection ramps too slowly for
+        // 720p/1080p videos — the startup buffer could not fill in time, so
+        // big videos sat on the spinner and tripped the "Slow connection"
+        // watchdog while small videos started instantly. ParallelRangeDataSource
+        // splits every stream into ~1 MiB chunks and pulls 4 of them over
+        // parallel HTTP Range connections (the exact trick DownloadCenter
+        // uses, which googlevideo demonstrably supports), serving bytes to
+        // the player the moment they land. Any server/transfer hiccup degrades
+        // to one plain connection at the player's current byte — never any
+        // skipped or duplicated data.
+        val parallel = ParallelRangeDataSource.Factory(resolving)
+        DefaultDataSource.Factory(appContext, parallel)
     }
 
     /**
