@@ -1,6 +1,9 @@
 package com.sparktube.app.download
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
+import android.util.Log
 import android.widget.Toast
 import com.sparktube.app.R
 import com.sparktube.app.data.DownloadRecord
@@ -39,6 +42,8 @@ import java.util.concurrent.atomic.AtomicLong
  */
 object DownloadCenter {
 
+    private const val TAG = "DownloadCenter"
+
     const val TYPE_AUDIO = "AUDIO"
     const val TYPE_VIDEO = "VIDEO"
     const val TYPE_AV = "AV"
@@ -71,6 +76,14 @@ object DownloadCenter {
         )
         .connectionPool(okhttp3.ConnectionPool(16, 5, TimeUnit.MINUTES))
         .build()
+
+    /** All registry mutations run under this lock so the UI poller (main
+     * thread) and job completion callbacks (IO threads) can never observe
+     * half-synced state — e.g. flip a record back to FAILED after another
+     * thread already marked it DONE. */
+    private val syncLock = Any()
+
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     private val jobIdSeq = AtomicLong(1L)
 
@@ -118,7 +131,7 @@ object DownloadCenter {
     }
 
     /** Deletes every download (files + registry). */
-    fun clearAll(context: Context) {
+    fun clearAll(context: Context) = synchronized(syncLock) {
         jobs.values.forEach { it.cancel() }
         jobs.clear()
         LocalStore.downloads(context).forEach { record ->
@@ -166,7 +179,8 @@ object DownloadCenter {
         val path = destinationPath(context, fileName, type)
         val job = DownloadJob(streamUrl, File(path))
         jobs[job.id] = job
-        job.start()
+        // Registry entry first, THEN the engine: a job that dies within
+        // milliseconds is guaranteed to find its record when it reports back.
         LocalStore.addDownload(
             context,
             DownloadRecord(
@@ -181,6 +195,7 @@ object DownloadCenter {
                 downloadIds = listOf(job.id)
             )
         )
+        job.start()
     }
 
     /** Starts a video+audio pair download (AV) — both files download in parallel. */
@@ -200,8 +215,6 @@ object DownloadCenter {
         val audioJob = DownloadJob(audioStreamUrl, File(destinationPath(context, "${videoId}_AV_${quality.replace(" ", "")}_a.m4a", TYPE_AV)))
         jobs[videoJob.id] = videoJob
         jobs[audioJob.id] = audioJob
-        videoJob.start()
-        audioJob.start()
         LocalStore.addDownload(
             context,
             DownloadRecord(
@@ -216,10 +229,12 @@ object DownloadCenter {
                 downloadIds = listOf(videoJob.id, audioJob.id)
             )
         )
+        videoJob.start()
+        audioJob.start()
     }
 
     /** Deletes the files of a record and removes it from the registry. */
-    fun delete(context: Context, record: DownloadRecord) {
+    fun delete(context: Context, record: DownloadRecord) = synchronized(syncLock) {
         record.downloadIds.forEach { id ->
             jobs.remove(id)?.cancel()
         }
@@ -233,8 +248,34 @@ object DownloadCenter {
      * Re-syncs statuses of unfinished downloads with the live jobs. A record
      * turns DONE when every job finished and FAILED when any job failed (or
      * when its jobs vanished — e.g. the process was killed mid-download).
+     *
+     * Live jobs are only dropped from the map once a record reaches a
+     * terminal state (DONE / FAILED). A mere PENDING → RUNNING transition
+     * must keep them, otherwise the next poll would see an empty job list
+     * and wrongly mark a still-running download as failed.
      */
-    fun refreshStatuses(context: Context) {
+    fun refreshStatuses(context: Context) = synchronized(syncLock) {
+        syncLocked(context)
+    }
+
+    /**
+     * Called from a job's own coroutine when it terminates (success, failure
+     * or cancellation) so the registry flips to DONE / FAILED even when no
+     * screen is currently polling.
+     */
+    private fun onJobTerminated(jobId: Long) {
+        val ctx = appCtx ?: return
+        synchronized(syncLock) {
+            // Only records that actually reference this job need a re-sync.
+            val affected = LocalStore.downloads(ctx)
+                .filter { it.downloadIds.contains(jobId) }
+            if (affected.isEmpty()) return
+            syncLocked(ctx)
+        }
+    }
+
+    /** The actual status sync — callers must hold [syncLock]. */
+    private fun syncLocked(context: Context) {
         LocalStore.downloads(context).filter { it.status != STATUS_DONE && it.status != STATUS_FAILED }
             .forEach { record ->
                 val recordJobs = record.downloadIds.mapNotNull { jobs[it] }
@@ -246,9 +287,12 @@ object DownloadCenter {
                 }
                 if (newStatus != record.status) {
                     LocalStore.updateDownloadStatus(context, record.downloadIds.first(), newStatus)
-                    recordJobs.forEach { jobs.remove(it.id) }
-                    if (newStatus == STATUS_DONE) {
-                        announceDone(context)
+                    if (newStatus == STATUS_DONE || newStatus == STATUS_FAILED) {
+                        // Terminal state: now the live jobs can go.
+                        recordJobs.forEach { jobs.remove(it.id) }
+                        if (newStatus == STATUS_DONE) {
+                            announceDone(context)
+                        }
                     }
                 }
             }
@@ -256,7 +300,10 @@ object DownloadCenter {
 
     private fun announceDone(context: Context) {
         val ctx = appCtx ?: context.applicationContext
-        Toast.makeText(ctx, R.string.download_status_done, Toast.LENGTH_SHORT).show()
+        // May be reached from an IO thread: Toast needs a looper, so post it.
+        mainHandler.post {
+            Toast.makeText(ctx, R.string.download_status_done, Toast.LENGTH_SHORT).show()
+        }
     }
 
     /**
@@ -283,6 +330,7 @@ object DownloadCenter {
             runCatching { if (file.exists()) file.delete() }
             job = DownloadCenter.scope.launch {
                 val ok = runCatching { downloadInternal() }
+                    .onFailure { Log.w(TAG, "Download job #$id failed for $url", it) }
                     .getOrElse { false }
                 if (ok && !cancelled.get()) {
                     finished.set(true)
@@ -290,6 +338,9 @@ object DownloadCenter {
                     failed.set(true)
                     runCatching { file.delete() }
                 }
+                // Self-report termination so the record flips even without
+                // a screen polling refreshStatuses().
+                DownloadCenter.onJobTerminated(id)
             }
         }
 
@@ -307,7 +358,10 @@ object DownloadCenter {
             val totalSize: Long
             val rangesSupported: Boolean
             DownloadCenter.client.newCall(probe).execute().use { resp ->
-                if (!resp.isSuccessful) return@withContext false
+                if (!resp.isSuccessful) {
+                    Log.w(TAG, "Probe failed: HTTP ${resp.code} for $url")
+                    return@withContext false
+                }
                 val contentRange = resp.header("Content-Range")
                 val acceptRanges = resp.header("Accept-Ranges")
                 totalSize = contentRange
@@ -359,7 +413,10 @@ object DownloadCenter {
             try {
                 val request = newRequest().build()
                 DownloadCenter.client.newCall(request).execute().use { resp ->
-                    if (!resp.isSuccessful) return@withContext false
+                    if (!resp.isSuccessful) {
+                        Log.w(TAG, "Plain download failed: HTTP ${resp.code} for $url")
+                        return@withContext false
+                    }
                     val body = resp.body ?: return@withContext false
                     file.outputStream().use { out ->
                         body.byteStream().use { input ->
@@ -377,6 +434,7 @@ object DownloadCenter {
                 }
                 true
             } catch (e: Exception) {
+                Log.w(TAG, "Plain download error for $url", e)
                 false
             }
         }

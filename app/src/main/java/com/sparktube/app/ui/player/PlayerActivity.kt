@@ -536,8 +536,9 @@ class PlayerActivity : AppCompatActivity() {
         override fun run() {
             val entry = PlaybackCenter.currentEntry
             if (entry != null && !isFinishing) {
-                // Keep the registry in sync with the system download manager
-                // so a finished download flips to "Downloaded" right away.
+                // Keep the registry in sync with the built-in download
+                // engine so a finished download flips to "Downloaded" right
+                // away (jobs also self-report, this covers app restarts).
                 if (DownloadCenter.hasActiveDownload(this@PlayerActivity, entry.url)) {
                     DownloadCenter.refreshStatuses(this@PlayerActivity)
                 }
