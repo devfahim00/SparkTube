@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "479430704228",
+    "project_id": "sparktube-33810",
+    "storage_bucket": "sparktube-33810.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:479430704228:android:ec3057a47ac66ec23c3371",
+        "android_client_info": {
+          "package_name": "com.sparktube.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA3u_mcDDMc3EJoOsfJux3ptvVXHt3Nq3k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

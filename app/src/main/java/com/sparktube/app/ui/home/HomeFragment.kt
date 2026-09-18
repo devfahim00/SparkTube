@@ -23,6 +23,7 @@ import com.sparktube.app.ui.player.PlayerActivity
 import com.sparktube.app.ui.search.SearchActivity
 import com.sparktube.app.util.AppPrefs
 import com.sparktube.app.util.Formatters
+import com.google.firebase.crashlytics.FirebaseCrashlytics
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -71,6 +72,25 @@ class HomeFragment : Fragment() {
         binding.searchButton.setOnClickListener {
             startActivity(
                 SearchActivity.intent(requireContext(), music = false)
+            )
+        }
+
+        // Test-crash button: verifies the Firebase Crashlytics pipeline.
+        // Logs some context first (visible in the Crashlytics console under
+        // "Logs" on the crash report), then forces an uncaught exception.
+        // NOTE: Crashlytics only uploads the report after the app is opened
+        // again, and it ignores crashes that happen while a debugger is
+        // attached — install the APK and run it normally, not from the IDE.
+        binding.crashTestButton.setOnClickListener {
+            val crashlytics = FirebaseCrashlytics.getInstance()
+            crashlytics.log("Test crash button tapped on Home")
+            crashlytics.setCustomKey("crash_source", "home_test_button")
+            crashlytics.setCustomKey(
+                "loaded_country",
+                loadedCountry ?: "<not loaded>"
+            )
+            throw RuntimeException(
+                "SparkTube test crash — Crashlytics reporting check"
             )
         }
 

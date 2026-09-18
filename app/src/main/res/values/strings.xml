@@ -20,6 +20,7 @@
     <string name="search_hint">Search videos</string>
     <string name="search_music_hint">Search songs</string>
     <string name="trending_in">Suggested in %1$s %2$s</string>
+    <string name="crash_test_desc">Test crash</string>
 
     <!-- Library -->
     <string name="tab_history">History</string>

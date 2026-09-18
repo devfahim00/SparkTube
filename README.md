@@ -3,10 +3,13 @@
 A lightweight YouTube client for Android built with **Kotlin** and
 **[NewPipeExtractor](https://github.com/TeamNewPipe/NewPipeExtractor)**.
 
-SparkTube is fully anonymous: no Google account, no API keys, no tracking.
-On first launch it asks for your country/region and then suggests videos for
-that region. It intentionally **never shows live streams** — not in the home
-feed, not in search results, not in the player.
+SparkTube needs no Google account and keeps all your lists (history,
+favorites, subscriptions) on your device. The only thing sent to the cloud
+is **anonymous crash reports** via Firebase Crashlytics so bugs can be
+fixed — no personal data is attached to them. On first launch it asks for
+your country/region and then suggests videos for that region. It
+intentionally **never shows live streams** — not in the home feed, not in
+search results, not in the player.
 
 ## Features
 
@@ -27,7 +30,13 @@ feed, not in search results, not in the player.
 - OkHttp (NewPipeExtractor downloader)
 - Media3 ExoPlayer + PlayerView
 - Coil for image loading
+- Firebase Crashlytics + Analytics (BoM 34.19.0)
 - ViewBinding, Material 3
+
+A small red **bug button** on the Home header forces a test crash so the
+Crashlytics pipeline can be verified from the Firebase console. Crash
+reports are uploaded the next time the app starts, and crashes are not
+reported while a debugger is attached.
 
 ## Building
 
