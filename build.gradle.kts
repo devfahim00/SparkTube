@@ -1,16 +1,8 @@
 // Top-level build file for the SparkTube project
 plugins {
-    // 8.6.x is required for compileSdk 35 (Firebase BoM 34.x SDKs build
-    // against SDK 35). Gradle 8.7 wrapper already satisfies AGP 8.6.
+    // 8.6.x is required for compileSdk 35. Gradle 8.7 wrapper satisfies AGP 8.6.
     id("com.android.application") version "8.6.1" apply false
-    // Kotlin 2.2.x: Firebase BoM 34.19.0 deps (play-services-measurement
-    // 23.2.0) carry Kotlin 2.2.0 metadata which the 1.9 compiler can't read.
+    // Kotlin 2.2.x toolchain — kept at 2.2.21 from the earlier migration;
+    // staying is safer than downgrading (some deps carry 2.x metadata).
     id("org.jetbrains.kotlin.android") version "2.2.21" apply false
-
-    // Google services Gradle plugin — reads app/google-services.json
-    id("com.google.gms.google-services") version "4.5.0" apply false
-
-    // Firebase Crashlytics Gradle plugin — uploads mapping files and
-    // processes crash symbols for release builds.
-    id("com.google.firebase.crashlytics") version "3.0.4" apply false
 }

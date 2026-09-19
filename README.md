@@ -230,6 +230,7 @@ SparkTube is built with privacy as a core principle:
 - ✅ **No analytics or tracking** libraries
 - ✅ **Local-only storage** — watch history and favorites never leave your device
 - ✅ **Region is just a preference** — used only to tailor trending results
+- ✅ **On-device crash logs** — if SparkTube crashes, a plain-text report is saved to the `SparkTube` folder on your device (no Firebase, nothing is uploaded anywhere). View, share, or delete them anytime from **Settings → Crash logs**
 
 ---
 

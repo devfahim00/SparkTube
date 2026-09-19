@@ -3,25 +3,20 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
-
-    // Firebase: google-services reads app/google-services.json and generates
-    // resources for the Firebase SDKs; crashlytics handles symbol/mapping upload.
-    id("com.google.gms.google-services")
-    id("com.google.firebase.crashlytics")
 }
 
 android {
     namespace = "com.sparktube.app"
-    // Firebase BoM 34.x SDKs are built against SDK 35, so the app must
-    // compile against it too (targetSdk intentionally stays at 34).
+    // compileSdk 35 (kept from the Firebase era; harmless without it) —
+    // targetSdk intentionally stays at 34.
     compileSdk = 35
 
     defaultConfig {
         applicationId = "com.sparktube.app"
         minSdk = 24
         targetSdk = 34
-        versionCode = 8
-        versionName = "1.3.2"
+        versionCode = 9
+        versionName = "1.4.0"
     }
 
     // Release signing: credentials come from environment variables so they
@@ -125,9 +120,9 @@ dependencies {
     implementation("androidx.media3:media3-ui:$media3Version")
     implementation("androidx.media3:media3-session:$media3Version")
 
-    // Firebase (BoM keeps all Firebase library versions compatible).
-    // Crashlytics → crash reports; Analytics → usage events.
-    implementation(platform("com.google.firebase:firebase-bom:34.19.0"))
-    implementation("com.google.firebase:firebase-crashlytics")
-    implementation("com.google.firebase:firebase-analytics")
+    // Crash reporting: local and Firebase-free — crash logs are written to
+    // a "SparkTube" folder on the user's device (see util/CrashReporter.kt).
+    // Firebase Crashlytics was removed because google-services.json (which
+    // contains the Firebase web API key) cannot live in a public repo without
+    // GitHub secret scanning flagging it.
 }

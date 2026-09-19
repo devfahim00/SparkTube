@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.net.Uri
 import android.os.Bundle
 import android.util.TypedValue
 import android.view.Gravity
@@ -21,7 +22,11 @@ import com.sparktube.app.databinding.ActivitySettingsPageBinding
 import com.sparktube.app.download.DownloadCenter
 import com.sparktube.app.playback.PlaybackCenter
 import com.sparktube.app.util.AppPrefs
+import com.sparktube.app.util.CrashReporter
 import com.sparktube.app.util.Themes
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * One full settings PAGE per area (general / video / music) — the menu used
@@ -92,12 +97,212 @@ class SettingsPageActivity : AppCompatActivity() {
                 render()
             }
         )
+        // Local crash logs (Firebase-free crash reporting) — see
+        // util/CrashReporter.kt. Row shows how many reports are on the device.
+        content.addView(
+            menuRow(getString(R.string.settings_crash_logs), crashLogCountLabel()) {
+                showCrashLogsSheet()
+            }
+        )
         // "Clear data" lives here now — it used to be a stray menu card.
         content.addView(
             menuRow(getString(R.string.menu_clear_data), "") {
                 showClearDataSheet()
             }
         )
+    }
+
+    // ----- Crash logs (local crash reporting viewer) -----
+
+    /** Value label for the Crash logs row — number of reports on the device. */
+    private fun crashLogCountLabel(): String =
+        CrashReporter.listLogs(this).size.toString()
+
+    /**
+     * Bottom sheet listing every crash report saved on the device. Tap a row
+     * to share that log file (e.g. to the developer via Telegram); Share all
+     * sends everything at once; Delete all removes the files.
+     */
+    private fun showCrashLogsSheet() {
+        val logs = CrashReporter.listLogs(this)
+        val sheet = BottomSheetDialog(this)
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(16), dp(20), dp(28))
+        }
+        root.addView(
+            TextView(this).apply {
+                text = getString(R.string.settings_crash_logs)
+                textSize = 18f
+                setTextColor(getColor(R.color.on_surface))
+                setTypeface(null, Typeface.BOLD)
+            }
+        )
+        root.addView(
+            TextView(this).apply {
+                text = getString(R.string.crash_logs_location_hint)
+                textSize = 12f
+                setTextColor(getColor(R.color.on_surface_variant))
+                setPadding(0, dp(4), 0, dp(2))
+            }
+        )
+
+        if (logs.isEmpty()) {
+            root.addView(
+                TextView(this).apply {
+                    text = getString(R.string.crash_logs_empty)
+                    textSize = 14f
+                    setTextColor(getColor(R.color.on_surface_variant))
+                    setPadding(dp(4), dp(14), dp(4), dp(6))
+                }
+            )
+        } else {
+            // Share-all + Delete-all side by side.
+            val actions = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+                ).also { it.topMargin = dp(12) }
+            }
+            actions.addView(
+                crashSheetAction(getString(R.string.crash_logs_share_all)) {
+                    shareAllCrashLogs(logs)
+                }.apply {
+                    layoutParams = LinearLayout.LayoutParams(
+                        0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f
+                    ).also { it.marginEnd = dp(5) }
+                }
+            )
+            actions.addView(
+                crashSheetAction(getString(R.string.crash_logs_delete_all)) {
+                    confirmDeleteCrashLogs(logs.size, sheet)
+                }.apply {
+                    layoutParams = LinearLayout.LayoutParams(
+                        0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f
+                    ).also { it.marginStart = dp(5) }
+                }
+            )
+            root.addView(actions)
+
+            logs.forEach { log ->
+                root.addView(
+                    crashLogRow(log) { shareCrashLog(log) }
+                )
+            }
+        }
+
+        val scroll = android.widget.ScrollView(this).apply { addView(root) }
+        sheet.setContentView(scroll)
+        sheet.behavior.peekHeight = dp(420)
+        sheet.show()
+    }
+
+    /** One crash log row: file name bold, size + date below. Tap = share. */
+    private fun crashLogRow(
+        log: CrashReporter.CrashLogFile,
+        onClick: () -> Unit
+    ): LinearLayout =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            isClickable = true
+            isFocusable = true
+            setPadding(dp(14), dp(12), dp(14), dp(12))
+            background = GradientDrawable().apply {
+                cornerRadius = dp(12).toFloat()
+                setColor(Themes.elevatedColor(this@SettingsPageActivity))
+            }
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            ).also { it.topMargin = dp(10) }
+            setOnClickListener { onClick() }
+            addView(
+                TextView(this@SettingsPageActivity).apply {
+                    text = log.displayName
+                    textSize = 14f
+                    maxLines = 1
+                    ellipsize = android.text.TextUtils.TruncateAt.MIDDLE
+                    setTextColor(getColor(R.color.on_surface))
+                    setTypeface(null, Typeface.BOLD)
+                }
+            )
+            addView(
+                TextView(this@SettingsPageActivity).apply {
+                    text = crashRowSubtitle(log)
+                    textSize = 12f
+                    setTextColor(getColor(R.color.on_surface_variant))
+                    setPadding(0, dp(2), 0, 0)
+                }
+            )
+        }
+
+    /** Small pill-shaped action button used at the top of the sheet. */
+    private fun crashSheetAction(label: String, onClick: () -> Unit): TextView =
+        TextView(this).apply {
+            text = label
+            textSize = 14f
+            gravity = Gravity.CENTER
+            isClickable = true
+            isFocusable = true
+            setPadding(dp(10), dp(10), dp(10), dp(10))
+            setTextColor(getColor(R.color.on_surface))
+            setTypeface(null, Typeface.BOLD)
+            background = GradientDrawable().apply {
+                cornerRadius = dp(12).toFloat()
+                setColor(Themes.elevatedColor(this@SettingsPageActivity))
+            }
+            setOnClickListener { onClick() }
+        }
+
+    private fun crashRowSubtitle(log: CrashReporter.CrashLogFile): String {
+        val date = SimpleDateFormat("d MMM yyyy, HH:mm", Locale.getDefault())
+            .format(Date(log.timeMs))
+        return "${formatLogSize(log.sizeBytes)} • $date"
+    }
+
+    private fun formatLogSize(bytes: Long): String = when {
+        bytes >= 1024 * 1024 ->
+            String.format(Locale.US, "%.1f MB", bytes / (1024.0 * 1024.0))
+        bytes >= 1024 ->
+            String.format(Locale.US, "%.1f KB", bytes / 1024.0)
+        else -> "$bytes B"
+    }
+
+    private fun shareCrashLog(log: CrashReporter.CrashLogFile) {
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_STREAM, log.uri)
+            putExtra(Intent.EXTRA_SUBJECT, log.displayName)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        startActivity(Intent.createChooser(intent, getString(R.string.crash_log_share)))
+    }
+
+    private fun shareAllCrashLogs(logs: List<CrashReporter.CrashLogFile>) {
+        val uris = ArrayList<Uri>(logs.map { it.uri })
+        val intent = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+            type = "text/plain"
+            putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        startActivity(Intent.createChooser(intent, getString(R.string.crash_logs_share_all)))
+    }
+
+    private fun confirmDeleteCrashLogs(count: Int, sheet: BottomSheetDialog) {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.crash_logs_delete_all)
+            .setMessage(R.string.crash_logs_delete_confirm)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                CrashReporter.deleteAllLogs(this)
+                Toast.makeText(
+                    this,
+                    getString(R.string.crash_logs_deleted, count),
+                    Toast.LENGTH_SHORT
+                ).show()
+                sheet.dismiss()
+                render()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     // ----- Clear data (moved here from the menu) -----

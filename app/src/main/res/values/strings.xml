@@ -176,6 +176,16 @@
     <string name="settings_autoplay_next_song">Autoplay next song</string>
     <string name="default_quality_note">Used when a video starts; if the selected quality is not available the next lower one is played</string>
 
+    <!-- Crash logs (local, Firebase-free crash reporting) -->
+    <string name="settings_crash_logs">Crash logs</string>
+    <string name="crash_logs_location_hint">Crash logs are saved as plain-text files in the SparkTube folder on your device</string>
+    <string name="crash_logs_empty">No crash logs yet. If the app ever crashes, a report will appear here automatically.</string>
+    <string name="crash_log_share">Share crash log</string>
+    <string name="crash_logs_share_all">Share all logs</string>
+    <string name="crash_logs_delete_all">Delete all logs</string>
+    <string name="crash_logs_delete_confirm">Delete all saved crash log files from the device?</string>
+    <string name="crash_logs_deleted">Deleted %1$d crash logs</string>
+
     <!-- Clear data submenu -->
     <string name="menu_clear_data">Clear data</string>
     <string name="clear_music_history">Clear music history</string>

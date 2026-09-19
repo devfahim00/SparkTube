@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Crash log files written by CrashReporter when MediaStore is not
+         available (Android 9 and below, or a failed MediaStore write):
+           external: Android/data/com.sparktube.app/files/SparkTube/
+           internal: /data/data/com.sparktube.app/files/SparkTube/
+         On Android 10+ crash logs live in Download/SparkTube through
+         MediaStore and are shared via their MediaStore content URIs
+         directly — no FileProvider needed for those. -->
+    <external-files-path
+        name="crash_logs_external"
+        path="SparkTube/" />
+    <files-path
+        name="crash_logs_internal"
+        path="SparkTube/" />
+</paths>

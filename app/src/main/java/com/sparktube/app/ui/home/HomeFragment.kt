@@ -23,8 +23,8 @@ import com.sparktube.app.ui.common.VideoAdapter
 import com.sparktube.app.ui.player.PlayerActivity
 import com.sparktube.app.ui.search.SearchActivity
 import com.sparktube.app.util.AppPrefs
+import com.sparktube.app.util.CrashReporter
 import com.sparktube.app.util.Formatters
-import com.google.firebase.crashlytics.FirebaseCrashlytics
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -76,24 +76,20 @@ class HomeFragment : Fragment() {
             )
         }
 
-        // Test-crash button: verifies the Firebase Crashlytics pipeline.
+        // Test-crash button: verifies the local crash reporter pipeline
+        // (CrashReporter writes reports into the "SparkTube" folder on the
+        // device — Download/SparkTube on Android 10+).
         // DEBUG BUILDS ONLY — release users never see it.
-        // Logs some context first (visible in the Crashlytics console under
-        // "Logs" on the crash report), then forces an uncaught exception.
-        // NOTE: Crashlytics only uploads the report after the app is opened
-        // again, and it ignores crashes that happen while a debugger is
-        // attached — install the APK and run it normally, not from the IDE.
+        // Tap → uncaught exception → report file written to the device →
+        // reopen the app and check Settings → Crash logs to view/share it.
         binding.crashTestButton.isVisible = BuildConfig.DEBUG
         binding.crashTestButton.setOnClickListener {
-            val crashlytics = FirebaseCrashlytics.getInstance()
-            crashlytics.log("Test crash button tapped on Home")
-            crashlytics.setCustomKey("crash_source", "home_test_button")
-            crashlytics.setCustomKey(
-                "loaded_country",
-                loadedCountry ?: "<not loaded>"
+            CrashReporter.logBreadcrumb("Test crash button tapped on Home")
+            CrashReporter.logBreadcrumb(
+                "loaded_country=${loadedCountry ?: "<not loaded>"}"
             )
             throw RuntimeException(
-                "SparkTube test crash — Crashlytics reporting check"
+                "SparkTube test crash — local crash report check"
             )
         }
 
