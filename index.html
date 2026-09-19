@@ -1,0 +1,1158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SparkTube — Lightweight Anonymous YouTube Client for Android</title>
+  <meta name="description" content="SparkTube is a lightweight, fully anonymous YouTube client for Android built with Kotlin & NewPipeExtractor. No Google account, no API keys, no tracking, no live streams." />
+  <meta name="theme-color" content="#0a0c11" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="SparkTube — Anonymous YouTube Client for Android" />
+  <meta property="og:description" content="No Google account. No API keys. No tracking. No live streams. Download the latest APK." />
+  <meta property="og:url" content="https://devfahim00.github.io/SparkTube" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E⚡%3C/text%3E%3C/svg%3E" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg: #05070b;
+      --bg-2: #0a0d14;
+      --card: rgba(255, 255, 255, 0.04);
+      --card-hover: rgba(255, 255, 255, 0.07);
+      --border: rgba(255, 255, 255, 0.08);
+      --border-hi: rgba(110, 231, 255, 0.35);
+      --text: #eef2f8;
+      --muted: #8b94a7;
+      --accent: #6ee7ff;
+      --accent-2: #a78bfa;
+      --accent-3: #f472b6;
+      --grad: linear-gradient(120deg, #6ee7ff, #a78bfa 55%, #f472b6);
+      --grad-soft: linear-gradient(120deg, rgba(110,231,255,.18), rgba(167,139,250,.18) 55%, rgba(244,114,182,.18));
+      --radius: 18px;
+      --font: "Space Grotesk", system-ui, -apple-system, sans-serif;
+      --mono: "JetBrains Mono", ui-monospace, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+      position: relative;
+      min-height: 100vh;
+    }
+
+    /* three.js canvas */
+    #bg {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+      display: block;
+    }
+
+    /* soft glow overlay */
+    .glow {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      background:
+        radial-gradient(700px 480px at 12% -8%, rgba(110, 231, 255, 0.10), transparent 60%),
+        radial-gradient(800px 560px at 92% 6%, rgba(167, 139, 250, 0.10), transparent 60%),
+        radial-gradient(700px 700px at 50% 112%, rgba(244, 114, 182, 0.07), transparent 60%);
+      mix-blend-mode: screen;
+    }
+
+    /* scroll progress bar */
+    .progress {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 2px;
+      width: 0%;
+      background: var(--grad);
+      z-index: 100;
+      transition: width 0.08s linear;
+      box-shadow: 0 0 12px rgba(110, 231, 255, 0.6);
+    }
+
+    .content {
+      position: relative;
+      z-index: 2;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    .container { width: min(1120px, 92%); margin: 0 auto; }
+
+    /* NAV */
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 60;
+      backdrop-filter: blur(16px) saturate(1.2);
+      -webkit-backdrop-filter: blur(16px) saturate(1.2);
+      background: rgba(5, 7, 11, 0.6);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 0;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-weight: 700;
+      font-size: 1.05rem;
+      letter-spacing: -0.01em;
+    }
+    .logo-mark {
+      display: grid;
+      place-items: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      background: var(--grad);
+      color: #05070b;
+      font-size: 1rem;
+      box-shadow: 0 6px 20px rgba(110, 231, 255, 0.25);
+    }
+    .logo-dim { color: var(--muted); font-weight: 400; }
+    .nav-links {
+      display: flex;
+      gap: 28px;
+      list-style: none;
+      font-size: 0.92rem;
+      color: var(--muted);
+    }
+    .nav-links a {
+      position: relative;
+      transition: color 0.25s ease;
+    }
+    .nav-links a::after {
+      content: "";
+      position: absolute;
+      left: 0; right: 100%;
+      bottom: -6px;
+      height: 1px;
+      background: var(--grad);
+      transition: right 0.3s ease;
+    }
+    .nav-links a:hover { color: var(--text); }
+    .nav-links a:hover::after { right: 0; }
+
+    .nav-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 9px 18px;
+      border-radius: 999px;
+      background: var(--grad);
+      color: #05070b;
+      font-weight: 600;
+      font-size: 0.88rem;
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+      box-shadow: 0 4px 18px rgba(110, 231, 255, 0.18);
+    }
+    .nav-cta:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(110, 231, 255, 0.35);
+    }
+    @media (max-width: 760px) {
+      .nav-links { display: none; }
+    }
+
+    /* HERO */
+    .hero { padding: 80px 0 50px; }
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 0.88rem;
+      margin-bottom: 30px;
+      transition: color 0.25s ease, transform 0.25s ease;
+    }
+    .back-link:hover {
+      color: var(--accent);
+      transform: translateX(-3px);
+    }
+
+    .hero-top {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 56px;
+      align-items: center;
+    }
+    @media (max-width: 900px) {
+      .hero-top { grid-template-columns: 1fr; gap: 44px; }
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 7px 15px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      backdrop-filter: blur(8px);
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 22px;
+      font-family: var(--mono);
+      letter-spacing: 0.02em;
+    }
+    .live {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #4ade80;
+      box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.6);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.6); }
+      70% { box-shadow: 0 0 0 10px rgba(74, 222, 128, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
+    }
+
+    h1 {
+      font-size: clamp(2.1rem, 5.4vw, 3.4rem);
+      line-height: 1.06;
+      letter-spacing: -0.03em;
+      font-weight: 700;
+    }
+    .grad {
+      background: var(--grad);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .hero p.lead {
+      color: var(--muted);
+      font-size: 1.06rem;
+      margin-top: 20px;
+      max-width: 52ch;
+    }
+    .badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 26px;
+    }
+    .badge {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      padding: 6px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      backdrop-filter: blur(8px);
+      color: var(--muted);
+      transition: border-color 0.25s ease, color 0.25s ease, transform 0.25s ease;
+    }
+    .badge:hover {
+      border-color: var(--border-hi);
+      color: var(--accent);
+      transform: translateY(-2px);
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-top: 34px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 13px 26px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease, border-color 0.25s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .btn-primary {
+      background: var(--grad);
+      color: #05070b;
+      box-shadow: 0 6px 22px rgba(110, 231, 255, 0.22);
+    }
+    .btn-primary::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.35) 50%, transparent 70%);
+      transform: translateX(-120%);
+      transition: transform 0.7s ease;
+    }
+    .btn-primary:hover::before { transform: translateX(120%); }
+    .btn-primary:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 14px 38px rgba(110, 231, 255, 0.38);
+    }
+    .btn-ghost {
+      background: var(--card);
+      border-color: var(--border);
+      color: var(--text);
+      backdrop-filter: blur(8px);
+    }
+    .btn-ghost:hover {
+      background: var(--card-hover);
+      border-color: var(--border-hi);
+      transform: translateY(-3px);
+    }
+
+    /* PHONE MOCK (3D-ish) */
+    .phone-wrap {
+      display: flex;
+      justify-content: center;
+      perspective: 1200px;
+    }
+    .phone {
+      width: 280px;
+      height: 560px;
+      border-radius: 38px;
+      border: 2px solid var(--border);
+      background: linear-gradient(180deg, #12151c, #080b10);
+      padding: 14px;
+      box-shadow:
+        0 40px 90px rgba(0, 0, 0, 0.65),
+        0 0 60px rgba(110, 231, 255, 0.10),
+        inset 0 0 0 1px rgba(255,255,255,0.04);
+      position: relative;
+      transform: rotateY(-12deg) rotateX(4deg);
+      transition: transform 0.6s cubic-bezier(.2,.8,.2,1);
+      animation: float 7s ease-in-out infinite;
+    }
+    .phone:hover { transform: rotateY(0deg) rotateX(0deg) translateY(-8px); }
+    @keyframes float {
+      0%, 100% { transform: rotateY(-12deg) rotateX(4deg) translateY(0); }
+      50% { transform: rotateY(-12deg) rotateX(4deg) translateY(-12px); }
+    }
+    .phone::before {
+      content: "";
+      position: absolute;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 80px;
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.14);
+    }
+    .phone::after {
+      content: "";
+      position: absolute;
+      inset: -40px;
+      border-radius: 50px;
+      background: radial-gradient(closest-side, rgba(110,231,255,0.14), transparent 70%);
+      filter: blur(30px);
+      z-index: -1;
+      pointer-events: none;
+    }
+    .phone-screen {
+      width: 100%;
+      height: 100%;
+      border-radius: 24px;
+      background: #0a0d13;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      padding: 26px 12px 12px;
+      gap: 10px;
+    }
+    .ph-bar { height: 8px; border-radius: 6px; background: rgba(255, 255, 255, 0.07); }
+    .ph-bar.w60 { width: 60%; }
+    .ph-bar.w40 { width: 40%; }
+    .ph-thumb {
+      height: 128px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, rgba(110,231,255,0.24), rgba(167,139,250,0.24));
+      border: 1px solid var(--border);
+      display: grid;
+      place-items: center;
+      font-size: 2rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .ph-thumb::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(120deg, transparent 40%, rgba(255,255,255,0.18) 50%, transparent 60%);
+      transform: translateX(-100%);
+      animation: shimmer 4s infinite;
+    }
+    @keyframes shimmer {
+      0% { transform: translateX(-100%); }
+      60%, 100% { transform: translateX(100%); }
+    }
+    .ph-row { display: flex; gap: 8px; }
+    .ph-chip {
+      flex: 1;
+      height: 36px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+    }
+    .ph-nav {
+      margin-top: auto;
+      display: flex;
+      justify-content: space-around;
+      padding: 10px 6px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+    }
+    .ph-nav span {
+      width: 20px;
+      height: 20px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.18);
+    }
+    .ph-nav span:first-child {
+      background: var(--grad);
+      box-shadow: 0 0 14px rgba(110, 231, 255, 0.5);
+    }
+
+    /* SECTIONS */
+    .section { padding: 60px 0; }
+    .section-head { margin-bottom: 36px; }
+    .eyebrow {
+      font-family: var(--mono);
+      font-size: 0.76rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--accent);
+      display: block;
+      margin-bottom: 12px;
+    }
+    h2 {
+      font-size: clamp(1.6rem, 3.6vw, 2.3rem);
+      letter-spacing: -0.025em;
+      line-height: 1.12;
+    }
+    .section-head p {
+      color: var(--muted);
+      margin-top: 12px;
+      max-width: 62ch;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+    }
+    @media (max-width: 760px) { .grid-2 { grid-template-columns: 1fr; } }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 26px;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      transition: transform 0.35s cubic-bezier(.2,.8,.2,1), border-color 0.35s ease, background 0.35s ease, box-shadow 0.35s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(400px 200px at var(--mx, 50%) var(--my, 0%), rgba(110,231,255,0.10), transparent 70%);
+      opacity: 0;
+      transition: opacity 0.35s ease;
+      pointer-events: none;
+    }
+    .card:hover::before { opacity: 1; }
+    .card:hover {
+      transform: translateY(-6px);
+      border-color: var(--border-hi);
+      background: var(--card-hover);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+    }
+    .card .ico { font-size: 1.6rem; margin-bottom: 14px; display: block; }
+    .card h3 { font-size: 1.08rem; margin-bottom: 8px; font-weight: 600; }
+    .card p { color: var(--muted); font-size: 0.93rem; }
+
+    /* FEATURES */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+    @media (max-width: 900px) { .features { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 560px) { .features { grid-template-columns: 1fr; } }
+
+    .feature {
+      display: flex;
+      gap: 14px;
+      padding: 20px;
+      border-radius: 14px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      backdrop-filter: blur(10px);
+      transition: border-color 0.3s ease, transform 0.3s cubic-bezier(.2,.8,.2,1), background 0.3s ease;
+    }
+    .feature:hover {
+      transform: translateY(-4px);
+      border-color: rgba(167, 139, 250, 0.4);
+      background: var(--card-hover);
+    }
+    .feature-ico {
+      flex-shrink: 0;
+      width: 40px;
+      height: 40px;
+      border-radius: 11px;
+      display: grid;
+      place-items: center;
+      background: rgba(110, 231, 255, 0.1);
+      border: 1px solid rgba(110, 231, 255, 0.22);
+      font-size: 1.1rem;
+      transition: transform 0.35s ease, background 0.35s ease;
+    }
+    .feature:hover .feature-ico {
+      transform: scale(1.08) rotate(-4deg);
+      background: rgba(167, 139, 250, 0.16);
+    }
+    .feature h4 { font-size: 0.97rem; font-weight: 600; margin-bottom: 4px; }
+    .feature p { font-size: 0.86rem; color: var(--muted); line-height: 1.5; }
+
+    /* DOWNLOAD */
+    .download {
+      border-radius: 26px;
+      border: 1px solid var(--border);
+      background:
+        radial-gradient(700px 340px at 20% 0%, rgba(110, 231, 255, 0.12), transparent 60%),
+        radial-gradient(700px 340px at 90% 100%, rgba(167, 139, 250, 0.14), transparent 60%),
+        rgba(255, 255, 255, 0.03);
+      backdrop-filter: blur(14px);
+      padding: 56px 40px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .download::before {
+      content: "";
+      position: absolute;
+      inset: -1px;
+      border-radius: inherit;
+      padding: 1px;
+      background: linear-gradient(120deg, rgba(110,231,255,.5), rgba(167,139,250,.4), rgba(244,114,182,.4));
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events: none;
+      opacity: 0.55;
+    }
+    @media (max-width: 560px) { .download { padding: 38px 22px; } }
+    .download h2 { margin-bottom: 14px; }
+    .download p {
+      color: var(--muted);
+      max-width: 54ch;
+      margin: 0 auto 30px;
+    }
+    .download-actions {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-bottom: 34px;
+    }
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      text-align: left;
+      margin-top: 36px;
+    }
+    @media (max-width: 760px) { .steps { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 460px) { .steps { grid-template-columns: 1fr; } }
+    .step {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px;
+      transition: border-color 0.3s ease, transform 0.3s ease;
+    }
+    .step:hover {
+      border-color: var(--border-hi);
+      transform: translateY(-3px);
+    }
+    .step .n {
+      font-family: var(--mono);
+      font-size: 0.74rem;
+      color: var(--accent);
+      display: block;
+      margin-bottom: 8px;
+    }
+    .step p { font-size: 0.86rem; color: var(--muted); }
+
+    .notice {
+      margin-top: 30px;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.82rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      padding: 10px 18px;
+      border-radius: 999px;
+      border: 1px dashed var(--border);
+      background: rgba(255,255,255,0.02);
+    }
+
+    /* SPECS */
+    .specs {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.93rem;
+    }
+    .specs tr { border-bottom: 1px solid var(--border); transition: background 0.25s ease; }
+    .specs tr:hover { background: rgba(255,255,255,0.03); }
+    .specs tr:last-child { border-bottom: none; }
+    .specs td { padding: 15px 8px; vertical-align: top; }
+    .specs td:first-child {
+      width: 200px;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.82rem;
+    }
+    @media (max-width: 560px) { .specs td:first-child { width: 130px; } }
+
+    /* FOOTER */
+    .footer {
+      border-top: 1px solid var(--border);
+      padding: 34px 0;
+      margin-top: 46px;
+      background: rgba(5,7,11,0.4);
+      backdrop-filter: blur(8px);
+    }
+    .footer-inner {
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    .dim { color: #5b6478; }
+    .footer a { transition: color 0.25s ease; }
+    .footer a:hover { color: var(--accent); }
+
+    /* reveal */
+    .reveal {
+      opacity: 0;
+      transform: translateY(22px);
+      transition: opacity 0.8s cubic-bezier(.2,.8,.2,1), transform 0.8s cubic-bezier(.2,.8,.2,1);
+    }
+    .reveal.in { opacity: 1; transform: translateY(0); }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+      .phone { transform: none; animation: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <canvas id="bg" aria-hidden="true"></canvas>
+  <div class="glow" aria-hidden="true"></div>
+  <div class="progress" id="progress" aria-hidden="true"></div>
+
+  <div class="content">
+
+    <!-- NAV -->
+    <header class="nav">
+      <div class="container nav-inner">
+        <a href="../index.html" class="logo" aria-label="Fahim — home">
+          <span class="logo-mark">⚡</span> fahim<span class="logo-dim">.dev</span>
+        </a>
+        <ul class="nav-links">
+          <li><a href="../index.html#about">About</a></li>
+          <li><a href="../index.html#projects">Projects</a></li>
+          <li><a href="../index.html#contact">Contact</a></li>
+        </ul>
+        <a href="https://github.com/devfahim00/SparkTube/releases/latest" target="_blank" rel="noopener" class="nav-cta">
+          Download APK
+        </a>
+      </div>
+    </header>
+
+    <main>
+      <!-- HERO -->
+      <section class="hero">
+        <div class="container">
+          <a href="../index.html#projects" class="back-link">← Back to projects</a>
+
+          <div class="hero-top">
+            <div class="reveal">
+              <span class="pill"><i class="live"></i> Open source · v1.0.0</span>
+              <h1>⚡ SparkTube — <span class="grad">anonymous YouTube</span> for Android.</h1>
+              <p class="lead">
+                A lightweight YouTube client built with Kotlin &amp; NewPipeExtractor.
+                No Google account. No API keys. No tracking. No live streams.
+              </p>
+              <div class="badges">
+                <span class="badge">Kotlin</span>
+                <span class="badge">NewPipeExtractor</span>
+                <span class="badge">Media3</span>
+                <span class="badge">Material 3</span>
+                <span class="badge">GPL-3.0</span>
+              </div>
+              <div class="hero-actions">
+                <a href="https://github.com/devfahim00/SparkTube/releases/latest" target="_blank" rel="noopener" class="btn btn-primary">
+                  ⬇ Download latest APK
+                </a>
+                <a href="https://github.com/devfahim00/SparkTube" target="_blank" rel="noopener" class="btn btn-ghost">
+                  <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                  View on GitHub
+                </a>
+              </div>
+            </div>
+
+            <div class="phone-wrap reveal">
+              <div class="phone" aria-hidden="true">
+                <div class="phone-screen">
+                  <div class="ph-bar w40"></div>
+                  <div class="ph-thumb">⚡</div>
+                  <div class="ph-bar w60"></div>
+                  <div class="ph-bar w40"></div>
+                  <div class="ph-row">
+                    <div class="ph-chip"></div>
+                    <div class="ph-chip"></div>
+                    <div class="ph-chip"></div>
+                  </div>
+                  <div class="ph-row">
+                    <div class="ph-chip"></div>
+                    <div class="ph-chip"></div>
+                  </div>
+                  <div class="ph-nav">
+                    <span></span><span></span><span></span><span></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ABOUT -->
+      <section class="section">
+        <div class="container">
+          <div class="section-head reveal">
+            <span class="eyebrow">01 — About</span>
+            <h2>YouTube without the account, the ads, or the noise.</h2>
+          </div>
+          <div class="grid-2">
+            <div class="card reveal">
+              <span class="ico">🔒</span>
+              <h3>Fully anonymous by design</h3>
+              <p>No Google account login. No API keys. No analytics or tracking libraries. Your watch history and favorites stay only on your device — nothing is uploaded or synced anywhere.</p>
+            </div>
+            <div class="card reveal">
+              <span class="ico">🌍</span>
+              <h3>Region-aware trending</h3>
+              <p>On first launch, SparkTube asks for your country / region via a searchable list. Trending results are tailored to that region, and you can change it any time later.</p>
+            </div>
+            <div class="card reveal">
+              <span class="ico">🚫</span>
+              <h3>No live streams — ever</h3>
+              <p>Live streams are intentionally filtered out of the home feed, search results, and the player. The experience stays focused purely on on-demand videos.</p>
+            </div>
+            <div class="card reveal">
+              <span class="ico">🎵</span>
+              <h3>Music tab with genre chips</h3>
+              <p>Trending music plus quick genre filters — Pop, Hip-Hop, Bollywood, Bangla, Rock, EDM, Lofi and more. Switch moods without leaving the app.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- FEATURES -->
+      <section class="section">
+        <div class="container">
+          <div class="section-head reveal">
+            <span class="eyebrow">02 — Features</span>
+            <h2>What's inside.</h2>
+          </div>
+          <div class="features">
+            <div class="feature reveal">
+              <div class="feature-ico">🏠</div>
+              <div><h4>Home feed</h4><p>Trending videos for your selected region.</p></div>
+            </div>
+            <div class="feature reveal">
+              <div class="feature-ico">🔍</div>
+              <div><h4>Video search</h4><p>Fast search with live streams always filtered out.</p></div>
+            </div>
+            <div class="feature reveal">
+              <div class="feature-ico">▶️</div>
+              <div><h4>Built-in player</h4><p>Powered by Media3 / ExoPlayer with PlayerView.</p></div>
+            </div>
+            <div class="feature reveal">
+              <div class="feature-ico">🕘</div>
+              <div><h4>Watch history</h4><p>Stored locally on your device — never uploaded.</p></div>
+            </div>
+            <div class="feature reveal">
+              <div class="feature-ico">⭐</div>
+              <div><h4>Favorites</h4><p>Save videos locally; nothing leaves your phone.</p></div>
+            </div>
+            <div class="feature reveal">
+              <div class="feature-ico">🌙</div>
+              <div><h4>Dark Material 3 UI</h4><p>Modern dark theme built on Material Design 3.</p></div>
+            </div>
+            <div class="feature reveal">
+              <div class="feature-ico">🧭</div>
+              <div><h4>Floating bottom nav</h4><p>Clean floating bar with Home / Music / Library / Menu.</p></div>
+            </div>
+            <div class="feature reveal">
+              <div class="feature-ico">🌐</div>
+              <div><h4>Region picker</h4><p>Searchable country list, changeable anytime.</p></div>
+            </div>
+            <div class="feature reveal">
+              <div class="feature-ico">🛡️</div>
+              <div><h4>No tracking</h4><p>No analytics, no account, no API keys required.</p></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- DOWNLOAD -->
+      <section class="section" id="download">
+        <div class="container">
+          <div class="download reveal">
+            <span class="eyebrow" style="display:block;margin-bottom:12px;">03 — Download</span>
+            <h2>Get <span class="grad">SparkTube</span> on your Android device.</h2>
+            <p>
+              Grab the latest pre-built APK straight from the Releases page — no build required.
+              SparkTube requires Android 8.0 (Oreo) or newer.
+            </p>
+            <div class="download-actions">
+              <a href="https://github.com/devfahim00/SparkTube/releases/latest" target="_blank" rel="noopener" class="btn btn-primary">
+                ⬇ Download latest APK
+              </a>
+              <a href="https://github.com/devfahim00/SparkTube" target="_blank" rel="noopener" class="btn btn-ghost">
+                View source on GitHub
+              </a>
+            </div>
+
+            <div class="steps">
+              <div class="step">
+                <span class="n">STEP 01</span>
+                <p>Open the <strong>latest release</strong> page.</p>
+              </div>
+              <div class="step">
+                <span class="n">STEP 02</span>
+                <p>Under <strong>Assets</strong>, download the <code>.apk</code> file.</p>
+              </div>
+              <div class="step">
+                <span class="n">STEP 03</span>
+                <p>Allow <strong>Install unknown apps</strong> for your browser or file manager.</p>
+              </div>
+              <div class="step">
+                <span class="n">STEP 04</span>
+                <p>Open the APK and tap <strong>Install</strong>.</p>
+              </div>
+            </div>
+
+            <div class="notice">
+              ⚠️ Educational / personal use only · Not affiliated with YouTube or Google
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TECH SPECS -->
+      <section class="section">
+        <div class="container">
+          <div class="section-head reveal">
+            <span class="eyebrow">04 — Under the hood</span>
+            <h2>Tech stack.</h2>
+          </div>
+          <div class="card reveal">
+            <table class="specs">
+              <tbody>
+                <tr><td>Language</td><td>Kotlin with Coroutines</td></tr>
+                <tr><td>Extraction</td><td>NewPipeExtractor v0.26.5 (via JitPack)</td></tr>
+                <tr><td>Networking</td><td>OkHttp (NewPipeExtractor Downloader implementation)</td></tr>
+                <tr><td>Playback</td><td>Media3 ExoPlayer + PlayerView</td></tr>
+                <tr><td>Image loading</td><td>Coil</td></tr>
+                <tr><td>UI</td><td>ViewBinding, Material Design 3 (dark theme)</td></tr>
+                <tr><td>Build system</td><td>Gradle (Kotlin DSL)</td></tr>
+                <tr><td>CI</td><td>GitHub Actions</td></tr>
+                <tr><td>License</td><td>GPL-3.0</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="container footer-inner">
+        <span>© <span id="year">2026</span> Fahim · Made with ❤️ in Bangladesh 🇧🇩</span>
+        <span class="dim">
+          <a href="../index.html" style="color:inherit;">← Back to portfolio</a>
+        </span>
+      </div>
+    </footer>
+  </div>
+
+  <!-- three.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script>
+    /* =========================================================
+       three.js background — particle field + floating shapes
+       ========================================================= */
+    (function () {
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+      const canvas = document.getElementById('bg');
+      const scene = new THREE.Scene();
+      scene.fog = new THREE.FogExp2(0x05070b, 0.0016);
+
+      const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+      camera.position.set(0, 0, 34);
+
+      const renderer = new THREE.WebGLRenderer({
+        canvas,
+        alpha: true,
+        antialias: true,
+        powerPreference: 'high-performance'
+      });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setClearColor(0x000000, 0);
+
+      /* ---- Particle field ---- */
+      const PARTICLE_COUNT = 900;
+      const positions = new Float32Array(PARTICLE_COUNT * 3);
+      const colors = new Float32Array(PARTICLE_COUNT * 3);
+      const sizes = new Float32Array(PARTICLE_COUNT);
+      const palette = [
+        new THREE.Color(0x6ee7ff),
+        new THREE.Color(0xa78bfa),
+        new THREE.Color(0xf472b6),
+        new THREE.Color(0x8b94a7)
+      ];
+
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        const r = 60 * Math.cbrt(Math.random());
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(2 * Math.random() - 1);
+        positions[i * 3]     = r * Math.sin(phi) * Math.cos(theta);
+        positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta) * 0.55;
+        positions[i * 3 + 2] = r * Math.cos(phi);
+
+        const c = palette[Math.floor(Math.random() * palette.length)];
+        colors[i * 3]     = c.r;
+        colors[i * 3 + 1] = c.g;
+        colors[i * 3 + 2] = c.b;
+        sizes[i] = Math.random() * 1.6 + 0.4;
+      }
+
+      const particleGeo = new THREE.BufferGeometry();
+      particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      particleGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      particleGeo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+      // Soft circular sprite texture
+      function makeSprite() {
+        const s = 64;
+        const c = document.createElement('canvas');
+        c.width = c.height = s;
+        const ctx = c.getContext('2d');
+        const g = ctx.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+        g.addColorStop(0, 'rgba(255,255,255,1)');
+        g.addColorStop(0.4, 'rgba(255,255,255,0.55)');
+        g.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, s, s);
+        const tex = new THREE.CanvasTexture(c);
+        tex.needsUpdate = true;
+        return tex;
+      }
+
+      const particleMat = new THREE.PointsMaterial({
+        size: 0.9,
+        map: makeSprite(),
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.85,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        sizeAttenuation: true
+      });
+
+      const particles = new THREE.Points(particleGeo, particleMat);
+      scene.add(particles);
+
+      /* ---- Floating wireframe shapes ---- */
+      const shapes = [];
+      const shapeDefs = [
+        { geo: new THREE.IcosahedronGeometry(3.4, 0), color: 0x6ee7ff, pos: [-16, 6, -14] },
+        { geo: new THREE.OctahedronGeometry(3.0, 0), color: 0xa78bfa, pos: [17, -5, -12] },
+        { geo: new THREE.TorusGeometry(2.6, 0.7, 12, 32), color: 0xf472b6, pos: [12, 10, -20] },
+        { geo: new THREE.TetrahedronGeometry(2.8, 0), color: 0x6ee7ff, pos: [-14, -9, -18] },
+        { geo: new THREE.IcosahedronGeometry(2.0, 0), color: 0xa78bfa, pos: [0, 12, -26] }
+      ];
+
+      shapeDefs.forEach((def) => {
+        const mat = new THREE.MeshBasicMaterial({
+          color: def.color,
+          wireframe: true,
+          transparent: true,
+          opacity: 0.28
+        });
+        const mesh = new THREE.Mesh(def.geo, mat);
+        mesh.position.set(def.pos[0], def.pos[1], def.pos[2]);
+        scene.add(mesh);
+        shapes.push({
+          mesh,
+          rotSpeed: {
+            x: (Math.random() - 0.5) * 0.004,
+            y: (Math.random() - 0.5) * 0.006,
+            z: (Math.random() - 0.5) * 0.003
+          },
+          floatOffset: Math.random() * Math.PI * 2,
+          baseY: def.pos[1]
+        });
+      });
+
+      /* ---- Mouse parallax ---- */
+      const mouse = { x: 0, y: 0, tx: 0, ty: 0 };
+      window.addEventListener('mousemove', (e) => {
+        mouse.tx = (e.clientX / window.innerWidth - 0.5) * 2;
+        mouse.ty = (e.clientY / window.innerHeight - 0.5) * 2;
+      }, { passive: true });
+
+      /* ---- Scroll influence ---- */
+      let scrollY = 0;
+      const onScroll = () => { scrollY = window.scrollY || window.pageYOffset; };
+      window.addEventListener('scroll', onScroll, { passive: true });
+
+      /* ---- Resize ---- */
+      let resizeTimer;
+      window.addEventListener('resize', () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+          camera.aspect = window.innerWidth / window.innerHeight;
+          camera.updateProjectionMatrix();
+          renderer.setSize(window.innerWidth, window.innerHeight);
+        }, 120);
+      });
+
+      /* ---- Animation loop ---- */
+      const clock = new THREE.Clock();
+      let rafId = null;
+      let running = true;
+
+      function animate() {
+        if (!running) return;
+        rafId = requestAnimationFrame(animate);
+        const t = clock.getElapsedTime();
+
+        // smooth mouse
+        mouse.x += (mouse.tx - mouse.x) * 0.05;
+        mouse.y += (mouse.ty - mouse.y) * 0.05;
+
+        // rotate particle field
+        particles.rotation.y = t * 0.035 + mouse.x * 0.25;
+        particles.rotation.x = Math.sin(t * 0.2) * 0.05 + mouse.y * 0.15;
+
+        // shapes
+        shapes.forEach((s, i) => {
+          s.mesh.rotation.x += s.rotSpeed.x;
+          s.mesh.rotation.y += s.rotSpeed.y;
+          s.mesh.rotation.z += s.rotSpeed.z;
+          s.mesh.position.y = s.baseY + Math.sin(t * 0.6 + s.floatOffset) * 0.8;
+        });
+
+        // camera parallax + scroll
+        camera.position.x = mouse.x * 2.4;
+        camera.position.y = -mouse.y * 1.6 + scrollY * 0.0025;
+        camera.lookAt(0, scrollY * 0.0012, 0);
+
+        renderer.render(scene, camera);
+      }
+
+      // pause when tab hidden
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+          running = false;
+          if (rafId) cancelAnimationFrame(rafId);
+        } else if (!running) {
+          running = true;
+          animate();
+        }
+      });
+
+      animate();
+    })();
+
+    /* =========================================================
+       Page interactions: reveal, progress, card glow, year
+       ========================================================= */
+    (function () {
+      document.getElementById('year').textContent = new Date().getFullYear();
+
+      // scroll progress bar
+      const progress = document.getElementById('progress');
+      const updateProgress = () => {
+        const h = document.documentElement;
+        const scrolled = h.scrollTop / (h.scrollHeight - h.clientHeight || 1);
+        progress.style.width = Math.min(100, Math.max(0, scrolled * 100)) + '%';
+      };
+      window.addEventListener('scroll', updateProgress, { passive: true });
+      window.addEventListener('resize', updateProgress);
+      updateProgress();
+
+      // reveal on scroll
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            e.target.classList.add('in');
+            io.unobserve(e.target);
+          }
+        });
+      }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+
+      document.querySelectorAll('.reveal').forEach((el, i) => {
+        el.style.transitionDelay = Math.min(i * 55, 400) + 'ms';
+        io.observe(el);
+      });
+
+      // card cursor glow
+      document.querySelectorAll('.card').forEach((card) => {
+        card.addEventListener('mousemove', (e) => {
+          const r = card.getBoundingClientRect();
+          card.style.setProperty('--mx', ((e.clientX - r.left) / r.width * 100) + '%');
+          card.style.setProperty('--my', ((e.clientY - r.top) / r.height * 100) + '%');
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
