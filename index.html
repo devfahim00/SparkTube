@@ -88,10 +88,7 @@
       box-shadow: 0 0 12px rgba(110, 231, 255, 0.6);
     }
 
-    .content {
-      position: relative;
-      z-index: 2;
-    }
+    .content { position: relative; z-index: 2; }
 
     a { color: inherit; text-decoration: none; }
     .container { width: min(1120px, 92%); margin: 0 auto; }
@@ -139,10 +136,7 @@
       font-size: 0.92rem;
       color: var(--muted);
     }
-    .nav-links a {
-      position: relative;
-      transition: color 0.25s ease;
-    }
+    .nav-links a { position: relative; transition: color 0.25s ease; }
     .nav-links a::after {
       content: "";
       position: absolute;
@@ -187,10 +181,7 @@
       margin-bottom: 30px;
       transition: color 0.25s ease, transform 0.25s ease;
     }
-    .back-link:hover {
-      color: var(--accent);
-      transform: translateX(-3px);
-    }
+    .back-link:hover { color: var(--accent); transform: translateX(-3px); }
 
     .hero-top {
       display: grid;
@@ -325,11 +316,7 @@
     .btn i { font-size: 0.95em; }
 
     /* PHONE MOCK */
-    .phone-wrap {
-      display: flex;
-      justify-content: center;
-      perspective: 1200px;
-    }
+    .phone-wrap { display: flex; justify-content: center; perspective: 1200px; }
     .phone {
       width: 280px;
       height: 560px;
@@ -653,55 +640,6 @@
     }
     .notice i { color: #fbbf24; }
 
-    /* VERSION CHIP + RELEASE META */
-    .version-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-family: var(--mono);
-      font-size: 0.7rem;
-      padding: 5px 11px;
-      border-radius: 999px;
-      border: 1px solid var(--border-hi);
-      background: rgba(110, 231, 255, 0.08);
-      color: var(--accent);
-      vertical-align: middle;
-      margin-left: 10px;
-      transform: translateY(-4px);
-      letter-spacing: 0.02em;
-      white-space: nowrap;
-    }
-    .release-meta {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      font-family: var(--mono);
-      font-size: 0.8rem;
-      color: var(--muted);
-      margin-top: 22px;
-      padding: 8px 16px;
-      border-radius: 999px;
-      border: 1px solid var(--border);
-      background: rgba(255, 255, 255, 0.02);
-      flex-wrap: wrap;
-      justify-content: center;
-    }
-    .release-meta > span {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .release-meta > span i { color: var(--accent); font-size: 0.85em; }
-    .release-meta .dot { color: #4b5464; }
-    .release-meta .loading {
-      opacity: 0.55;
-      animation: blink 1.4s infinite;
-    }
-    @keyframes blink {
-      0%, 100% { opacity: 0.35; }
-      50% { opacity: 0.85; }
-    }
-
     /* SPECS */
     .specs {
       width: 100%;
@@ -780,7 +718,6 @@
           <li><a href="../index.html#contact">Contact</a></li>
         </ul>
         <a href="https://github.com/devfahim00/SparkTube/releases/latest"
-           data-release="apk-url"
            target="_blank" rel="noopener" class="nav-cta">
           <i class="fa-solid fa-download"></i>
           <span>Download APK</span>
@@ -801,8 +738,7 @@
             <div class="reveal">
               <span class="pill">
                 <i class="live"></i>
-                Open source ·
-                <span data-release="tag">v1.0.0</span>
+                Open source · Free forever
               </span>
               <h1>
                 <i class="fa-solid fa-bolt" style="color:var(--accent);font-size:.8em;"></i>
@@ -821,10 +757,9 @@
               </div>
               <div class="hero-actions">
                 <a href="https://github.com/devfahim00/SparkTube/releases/latest"
-                   data-release="apk-url"
                    target="_blank" rel="noopener" class="btn btn-primary">
                   <i class="fa-solid fa-download"></i>
-                  Download latest APK
+                  Download APK
                 </a>
                 <a href="https://github.com/devfahim00/SparkTube" target="_blank" rel="noopener" class="btn btn-ghost">
                   <i class="fa-brands fa-github"></i>
@@ -944,23 +879,16 @@
         <div class="container">
           <div class="download reveal">
             <span class="eyebrow" style="display:block;margin-bottom:12px;">03 — Download</span>
-            <h2>
-              Get <span class="grad">SparkTube</span>
-              <span class="version-chip">
-                <i class="fa-solid fa-tag"></i>
-                <span data-release="tag">v1.0.0</span>
-              </span>
-            </h2>
+            <h2>Get <span class="grad">SparkTube</span> on your Android device.</h2>
             <p>
-              Grab the latest pre-built APK straight from the Releases page — no build required.
+              Download the pre-built APK straight from GitHub — no build required.
               SparkTube requires Android 8.0 (Oreo) or newer.
             </p>
             <div class="download-actions">
               <a href="https://github.com/devfahim00/SparkTube/releases/latest"
-                 data-release="apk-url"
                  target="_blank" rel="noopener" class="btn btn-primary">
                 <i class="fa-solid fa-download"></i>
-                Download latest APK
+                Download APK
               </a>
               <a href="https://github.com/devfahim00/SparkTube" target="_blank" rel="noopener" class="btn btn-ghost">
                 <i class="fa-brands fa-github"></i>
@@ -968,18 +896,10 @@
               </a>
             </div>
 
-            <div class="release-meta" id="releaseMeta">
-              <span><i class="fa-solid fa-tag"></i> <span data-release="tag">v1.0.0</span></span>
-              <span class="dot">·</span>
-              <span><i class="fa-solid fa-file-zipper"></i> <span data-release="size" class="loading">fetching size…</span></span>
-              <span class="dot">·</span>
-              <span><i class="fa-regular fa-calendar"></i> <span data-release="date" class="loading">fetching date…</span></span>
-            </div>
-
             <div class="steps">
               <div class="step">
                 <span class="n">STEP 01</span>
-                <p>Open the <strong>latest release</strong> page.</p>
+                <p>Open the <strong>release</strong> page on GitHub.</p>
               </div>
               <div class="step">
                 <span class="n">STEP 02</span>
@@ -1215,7 +1135,7 @@
     })();
 
     /* =========================================================
-       Page interactions
+       Page interactions (no API, no fetch)
        ========================================================= */
     (function () {
       document.getElementById('year').textContent = new Date().getFullYear();
@@ -1251,204 +1171,6 @@
           card.style.setProperty('--my', ((e.clientY - r.top) / r.height * 100) + '%');
         });
       });
-    })();
-
-    /* =========================================================
-       GitHub Releases fetch — mobile-safe
-       ---------------------------------------------------------
-       Fixes the "v1.0.0 on mobile" issue:
-       1. Uses localStorage (works in mobile private mode too,
-          with try/catch fallback to memory cache)
-       2. fetch with AbortController timeout (12s)
-       3. Retry once on failure
-       4. Multiple CORS-safe endpoints tried in order
-       5. Never leaves stale hardcoded text — always updates
-          meta to "latest" on failure
-       ========================================================= */
-    (function () {
-      const REPO      = 'devfahim00/SparkTube';
-      const ENDPOINTS = [
-        `https://api.github.com/repos/${REPO}/releases/latest`,
-        `https://api.github.com/repos/${REPO}/releases?per_page=1`
-      ];
-      const FALLBACK  = `https://github.com/${REPO}/releases/latest`;
-      const CACHE_KEY = 'sparktube_release_v2';
-      const TTL       = 20 * 60 * 1000; // 20 min
-      const TIMEOUT   = 12000;
-
-      /* ---- in-memory fallback (for browsers blocking storage) ---- */
-      let memCache = null;
-
-      /* ---- storage helpers (safe everywhere) ---- */
-      function readCache() {
-        try {
-          const raw = localStorage.getItem(CACHE_KEY);
-          if (raw) {
-            const { t, data } = JSON.parse(raw);
-            if (Date.now() - t <= TTL) return data;
-          }
-        } catch (_) { /* storage blocked */ }
-        if (memCache && Date.now() - memCache.t <= TTL) return memCache.data;
-        return null;
-      }
-
-      function writeCache(data) {
-        memCache = { t: Date.now(), data };
-        try {
-          localStorage.setItem(CACHE_KEY, JSON.stringify({ t: Date.now(), data }));
-        } catch (_) { /* quota / private mode — memory cache still works */ }
-      }
-
-      /* ---- formatters ---- */
-      function formatBytes(bytes) {
-        if (bytes == null) return '—';
-        const units = ['B', 'KB', 'MB', 'GB'];
-        let i = 0, n = bytes;
-        while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
-        return `${n.toFixed(n >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
-      }
-
-      function formatDate(iso) {
-        if (!iso) return '—';
-        const d = new Date(iso);
-        if (isNaN(d)) return '—';
-        try {
-          return d.toLocaleDateString(undefined, {
-            year: 'numeric', month: 'short', day: 'numeric'
-          });
-        } catch {
-          // some old mobile browsers throw on locale options
-          const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-          return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
-        }
-      }
-
-      function setAll(selector, value) {
-        document.querySelectorAll(selector).forEach((el) => {
-          el.textContent = value;
-          el.classList.remove('loading');
-        });
-      }
-
-      /* ---- apply release to DOM ---- */
-      function applyRelease(rel) {
-        if (!rel) return;
-        const tag = rel.tag_name || rel.name || 'latest';
-        const assets = rel.assets || [];
-
-        const apk =
-          assets.find((a) => /\.apk$/i.test(a.name)) ||
-          assets.find((a) => /apk/i.test(a.name)) ||
-          assets[0];
-
-        const apkUrl = (apk && apk.browser_download_url) || rel.html_url || FALLBACK;
-        const size   = apk && apk.size;
-        const date   = rel.published_at;
-
-        setAll('[data-release="tag"]', tag);
-
-        document.querySelectorAll('[data-release="apk-url"]').forEach((el) => {
-          el.href = apkUrl;
-          if (apk && apk.name) el.setAttribute('download', apk.name);
-          el.setAttribute('title', `${(apk && apk.name) || 'APK'} · ${formatBytes(size)}`);
-        });
-
-        setAll('[data-release="size"]', formatBytes(size));
-        setAll('[data-release="date"]', formatDate(date));
-
-        document.title = `SparkTube ${tag} — Lightweight Anonymous YouTube Client for Android`;
-        const og = document.querySelector('meta[property="og:title"]');
-        if (og) og.setAttribute('content', `SparkTube ${tag} — Anonymous YouTube Client for Android`);
-      }
-
-      /* ---- timeout-wrapped fetch ---- */
-      function fetchWithTimeout(url) {
-        return new Promise((resolve, reject) => {
-          let done = false;
-          const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
-          const timer = setTimeout(() => {
-            if (done) return;
-            done = true;
-            if (ctrl) ctrl.abort();
-            reject(new Error('timeout'));
-          }, TIMEOUT);
-
-          const opts = {
-            headers: { 'Accept': 'application/vnd.github+json' },
-            cache: 'no-store'
-          };
-          if (ctrl) opts.signal = ctrl.signal;
-
-          fetch(url, opts)
-            .then((res) => {
-              if (done) return;
-              done = true;
-              clearTimeout(timer);
-              if (!res.ok) throw new Error('HTTP ' + res.status);
-              return res.json();
-            })
-            .then((data) => { if (data) resolve(data); })
-            .catch((err) => {
-              if (done) return;
-              done = true;
-              clearTimeout(timer);
-              reject(err);
-            });
-        });
-      }
-
-      /* ---- try endpoints in order, retry once each ---- */
-      async function fetchRelease() {
-        for (let attempt = 0; attempt < 2; attempt++) {
-          for (const url of ENDPOINTS) {
-            try {
-              const data = await fetchWithTimeout(url);
-              if (Array.isArray(data)) {
-                if (data.length) return data[0];
-              } else if (data && (data.tag_name || data.name)) {
-                return data;
-              }
-            } catch (err) {
-              console.warn('[SparkTube] fetch failed:', url, err.message);
-            }
-          }
-          // small backoff before retry pass
-          if (attempt === 0) await new Promise((r) => setTimeout(r, 800));
-        }
-        return null;
-      }
-
-      /* ---- graceful fallback ---- */
-      function applyFallback() {
-        document.querySelectorAll('[data-release="apk-url"]').forEach((el) => {
-          el.href = FALLBACK;
-        });
-        setAll('[data-release="size"]', 'latest');
-        setAll('[data-release="date"]', 'GitHub');
-        // leave tag as whatever is currently shown — do NOT show "v1.0.0" falsely
-        document.querySelectorAll('[data-release="tag"]').forEach((el) => {
-          if (/^v?1\.0\.0$/.test(el.textContent.trim())) {
-            el.textContent = 'latest';
-          }
-          el.classList.remove('loading');
-        });
-      }
-
-      /* ---- boot ---- */
-      const cached = readCache();
-      if (cached) {
-        applyRelease(cached);
-        return;
-      }
-
-      fetchRelease().then((rel) => {
-        if (rel) {
-          writeCache(rel);
-          applyRelease(rel);
-        } else {
-          applyFallback();
-        }
-      }).catch(() => applyFallback());
     })();
   </script>
 </body>
