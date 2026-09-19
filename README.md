@@ -1,5 +1,7 @@
 # SparkTube
 
+[![Github All Releases](https://img.shields.io/github/downloads/devfahim00/SparkTube/total.svg)]()
+
 A lightweight YouTube client for Android built with **Kotlin** and
 **[NewPipeExtractor](https://github.com/TeamNewPipe/NewPipeExtractor)**.
 
