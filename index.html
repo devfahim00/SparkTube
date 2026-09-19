@@ -819,4 +819,515 @@
             <div class="card reveal">
               <span class="ico">🔒</span>
               <h3>Fully anonymous by design</h3>
-             
+              <p>No Google account login. No API keys. No analytics or tracking libraries. Your watch history and favorites stay only on your device — nothing is uploaded or synced anywhere.</p>
+            </div>
+            <div class="card reveal">
+              <span class="ico">🌍</span>
+              <h3>Region-aware trending</h3>
+              <p>On first launch, SparkTube asks for your country / region via a searchable list. Trending results are tailored to that region, and you can change it any time later.</p>
+            </div>
+            <div class="card reveal">
+              <span class="ico">🚫</span>
+              <h3>No live streams — ever</h3>
+              <p>Live streams are intentionally filtered out of the home feed, search results, and the player. The experience stays focused purely on on-demand videos.</p>
+            </div>
+            <div class="card reveal">
+              <span class="ico">🎵</span>
+              <h3>Music tab with genre chips</h3>
+              <p>Trending music plus quick genre filters — Pop, Hip-Hop, Bollywood, Bangla, Rock, EDM, Lofi and more. Switch moods without leaving the app.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- FEATURES -->
+      <section class="section">
+        <div class="container">
+          <div class="section-head reveal">
+            <span class="eyebrow">02 — Features</span>
+            <h2>What's inside.</h2>
+          </div>
+          <div class="features">
+            <div class="feature reveal">
+              <div class="feature-ico">🏠</div>
+              <div><h4>Home feed</h4><p>Trending videos for your selected region.</p></div>
+            </div>
+            <div class="feature reveal">
+              <div class="feature-ico">🔍</div>
+              <div><h4>Video search</h4><p>Fast search with live streams always filtered out.</p></div>
+            </div>
+            <div class="feature reveal">
+              <div class="feature-ico">▶️</div>
+              <div><h4>Built-in player</h4><p>Powered by Media3 / ExoPlayer with PlayerView.</p></div>
+            </div>
+            <div class="feature reveal">
+              <div class="feature-ico">🕘</div>
+              <div><h4>Watch history</h4><p>Stored locally on your device — never uploaded.</p></div>
+            </div>
+            <div class="feature reveal">
+              <div class="feature-ico">⭐</div>
+              <div><h4>Favorites</h4><p>Save videos locally; nothing leaves your phone.</p></div>
+            </div>
+            <div class="feature reveal">
+              <div class="feature-ico">🌙</div>
+              <div><h4>Dark Material 3 UI</h4><p>Modern dark theme built on Material Design 3.</p></div>
+            </div>
+            <div class="feature reveal">
+              <div class="feature-ico">🧭</div>
+              <div><h4>Floating bottom nav</h4><p>Clean floating bar with Home / Music / Library / Menu.</p></div>
+            </div>
+            <div class="feature reveal">
+              <div class="feature-ico">🌐</div>
+              <div><h4>Region picker</h4><p>Searchable country list, changeable anytime.</p></div>
+            </div>
+            <div class="feature reveal">
+              <div class="feature-ico">🛡️</div>
+              <div><h4>No tracking</h4><p>No analytics, no account, no API keys required.</p></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- DOWNLOAD -->
+      <section class="section" id="download">
+        <div class="container">
+          <div class="download reveal">
+            <span class="eyebrow" style="display:block;margin-bottom:12px;">03 — Download</span>
+            <h2>
+              Get <span class="grad">SparkTube</span>
+              <span class="version-chip" data-release="tag">v1.0.0</span>
+            </h2>
+            <p>
+              Grab the latest pre-built APK straight from the Releases page — no build required.
+              SparkTube requires Android 8.0 (Oreo) or newer.
+            </p>
+            <div class="download-actions">
+              <a href="https://github.com/devfahim00/SparkTube/releases/latest"
+                 data-release="apk-url"
+                 target="_blank" rel="noopener" class="btn btn-primary">
+                ⬇ Download latest APK
+              </a>
+              <a href="https://github.com/devfahim00/SparkTube" target="_blank" rel="noopener" class="btn btn-ghost">
+                View source on GitHub
+              </a>
+            </div>
+
+            <div class="release-meta" id="releaseMeta">
+              <span data-release="tag">v1.0.0</span>
+              <span class="dot">·</span>
+              <span data-release="size" class="loading">fetching size…</span>
+              <span class="dot">·</span>
+              <span data-release="date" class="loading">fetching date…</span>
+            </div>
+
+            <div class="steps">
+              <div class="step">
+                <span class="n">STEP 01</span>
+                <p>Open the <strong>latest release</strong> page.</p>
+              </div>
+              <div class="step">
+                <span class="n">STEP 02</span>
+                <p>Under <strong>Assets</strong>, download the <code>.apk</code> file.</p>
+              </div>
+              <div class="step">
+                <span class="n">STEP 03</span>
+                <p>Allow <strong>Install unknown apps</strong> for your browser or file manager.</p>
+              </div>
+              <div class="step">
+                <span class="n">STEP 04</span>
+                <p>Open the APK and tap <strong>Install</strong>.</p>
+              </div>
+            </div>
+
+            <div class="notice">
+              ⚠️ Educational / personal use only · Not affiliated with YouTube or Google
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TECH SPECS -->
+      <section class="section">
+        <div class="container">
+          <div class="section-head reveal">
+            <span class="eyebrow">04 — Under the hood</span>
+            <h2>Tech stack.</h2>
+          </div>
+          <div class="card reveal">
+            <table class="specs">
+              <tbody>
+                <tr><td>Language</td><td>Kotlin with Coroutines</td></tr>
+                <tr><td>Extraction</td><td>NewPipeExtractor v0.26.5 (via JitPack)</td></tr>
+                <tr><td>Networking</td><td>OkHttp (NewPipeExtractor Downloader implementation)</td></tr>
+                <tr><td>Playback</td><td>Media3 ExoPlayer + PlayerView</td></tr>
+                <tr><td>Image loading</td><td>Coil</td></tr>
+                <tr><td>UI</td><td>ViewBinding, Material Design 3 (dark theme)</td></tr>
+                <tr><td>Build system</td><td>Gradle (Kotlin DSL)</td></tr>
+                <tr><td>CI</td><td>GitHub Actions</td></tr>
+                <tr><td>License</td><td>GPL-3.0</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="container footer-inner">
+        <span>© <span id="year">2026</span> Fahim · Made with ❤️ in Bangladesh 🇧🇩</span>
+        <span class="dim">
+          <a href="../index.html" style="color:inherit;">← Back to portfolio</a>
+        </span>
+      </div>
+    </footer>
+  </div>
+
+  <!-- three.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script>
+    /* =========================================================
+       three.js background — particle field + floating shapes
+       ========================================================= */
+    (function () {
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+      const canvas = document.getElementById('bg');
+      const scene = new THREE.Scene();
+      scene.fog = new THREE.FogExp2(0x05070b, 0.0016);
+
+      const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+      camera.position.set(0, 0, 34);
+
+      const renderer = new THREE.WebGLRenderer({
+        canvas,
+        alpha: true,
+        antialias: true,
+        powerPreference: 'high-performance'
+      });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setClearColor(0x000000, 0);
+
+      /* ---- Particle field ---- */
+      const PARTICLE_COUNT = 900;
+      const positions = new Float32Array(PARTICLE_COUNT * 3);
+      const colors = new Float32Array(PARTICLE_COUNT * 3);
+      const sizes = new Float32Array(PARTICLE_COUNT);
+      const palette = [
+        new THREE.Color(0x6ee7ff),
+        new THREE.Color(0xa78bfa),
+        new THREE.Color(0xf472b6),
+        new THREE.Color(0x8b94a7)
+      ];
+
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        const r = 60 * Math.cbrt(Math.random());
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(2 * Math.random() - 1);
+        positions[i * 3]     = r * Math.sin(phi) * Math.cos(theta);
+        positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta) * 0.55;
+        positions[i * 3 + 2] = r * Math.cos(phi);
+
+        const c = palette[Math.floor(Math.random() * palette.length)];
+        colors[i * 3]     = c.r;
+        colors[i * 3 + 1] = c.g;
+        colors[i * 3 + 2] = c.b;
+        sizes[i] = Math.random() * 1.6 + 0.4;
+      }
+
+      const particleGeo = new THREE.BufferGeometry();
+      particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      particleGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      particleGeo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+      function makeSprite() {
+        const s = 64;
+        const c = document.createElement('canvas');
+        c.width = c.height = s;
+        const ctx = c.getContext('2d');
+        const g = ctx.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+        g.addColorStop(0, 'rgba(255,255,255,1)');
+        g.addColorStop(0.4, 'rgba(255,255,255,0.55)');
+        g.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, s, s);
+        const tex = new THREE.CanvasTexture(c);
+        tex.needsUpdate = true;
+        return tex;
+      }
+
+      const particleMat = new THREE.PointsMaterial({
+        size: 0.9,
+        map: makeSprite(),
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.85,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        sizeAttenuation: true
+      });
+
+      const particles = new THREE.Points(particleGeo, particleMat);
+      scene.add(particles);
+
+      /* ---- Floating wireframe shapes ---- */
+      const shapes = [];
+      const shapeDefs = [
+        { geo: new THREE.IcosahedronGeometry(3.4, 0), color: 0x6ee7ff, pos: [-16, 6, -14] },
+        { geo: new THREE.OctahedronGeometry(3.0, 0), color: 0xa78bfa, pos: [17, -5, -12] },
+        { geo: new THREE.TorusGeometry(2.6, 0.7, 12, 32), color: 0xf472b6, pos: [12, 10, -20] },
+        { geo: new THREE.TetrahedronGeometry(2.8, 0), color: 0x6ee7ff, pos: [-14, -9, -18] },
+        { geo: new THREE.IcosahedronGeometry(2.0, 0), color: 0xa78bfa, pos: [0, 12, -26] }
+      ];
+
+      shapeDefs.forEach((def) => {
+        const mat = new THREE.MeshBasicMaterial({
+          color: def.color,
+          wireframe: true,
+          transparent: true,
+          opacity: 0.28
+        });
+        const mesh = new THREE.Mesh(def.geo, mat);
+        mesh.position.set(def.pos[0], def.pos[1], def.pos[2]);
+        scene.add(mesh);
+        shapes.push({
+          mesh,
+          rotSpeed: {
+            x: (Math.random() - 0.5) * 0.004,
+            y: (Math.random() - 0.5) * 0.006,
+            z: (Math.random() - 0.5) * 0.003
+          },
+          floatOffset: Math.random() * Math.PI * 2,
+          baseY: def.pos[1]
+        });
+      });
+
+      /* ---- Mouse parallax ---- */
+      const mouse = { x: 0, y: 0, tx: 0, ty: 0 };
+      window.addEventListener('mousemove', (e) => {
+        mouse.tx = (e.clientX / window.innerWidth - 0.5) * 2;
+        mouse.ty = (e.clientY / window.innerHeight - 0.5) * 2;
+      }, { passive: true });
+
+      /* ---- Scroll influence ---- */
+      let scrollY = 0;
+      const onScroll = () => { scrollY = window.scrollY || window.pageYOffset; };
+      window.addEventListener('scroll', onScroll, { passive: true });
+
+      /* ---- Resize ---- */
+      let resizeTimer;
+      window.addEventListener('resize', () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+          camera.aspect = window.innerWidth / window.innerHeight;
+          camera.updateProjectionMatrix();
+          renderer.setSize(window.innerWidth, window.innerHeight);
+        }, 120);
+      });
+
+      /* ---- Animation loop ---- */
+      const clock = new THREE.Clock();
+      let rafId = null;
+      let running = true;
+
+      function animate() {
+        if (!running) return;
+        rafId = requestAnimationFrame(animate);
+        const t = clock.getElapsedTime();
+
+        mouse.x += (mouse.tx - mouse.x) * 0.05;
+        mouse.y += (mouse.ty - mouse.y) * 0.05;
+
+        particles.rotation.y = t * 0.035 + mouse.x * 0.25;
+        particles.rotation.x = Math.sin(t * 0.2) * 0.05 + mouse.y * 0.15;
+
+        shapes.forEach((s) => {
+          s.mesh.rotation.x += s.rotSpeed.x;
+          s.mesh.rotation.y += s.rotSpeed.y;
+          s.mesh.rotation.z += s.rotSpeed.z;
+          s.mesh.position.y = s.baseY + Math.sin(t * 0.6 + s.floatOffset) * 0.8;
+        });
+
+        camera.position.x = mouse.x * 2.4;
+        camera.position.y = -mouse.y * 1.6 + scrollY * 0.0025;
+        camera.lookAt(0, scrollY * 0.0012, 0);
+
+        renderer.render(scene, camera);
+      }
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+          running = false;
+          if (rafId) cancelAnimationFrame(rafId);
+        } else if (!running) {
+          running = true;
+          animate();
+        }
+      });
+
+      animate();
+    })();
+
+    /* =========================================================
+       Page interactions: reveal, progress, card glow, year
+       ========================================================= */
+    (function () {
+      document.getElementById('year').textContent = new Date().getFullYear();
+
+      const progress = document.getElementById('progress');
+      const updateProgress = () => {
+        const h = document.documentElement;
+        const scrolled = h.scrollTop / (h.scrollHeight - h.clientHeight || 1);
+        progress.style.width = Math.min(100, Math.max(0, scrolled * 100)) + '%';
+      };
+      window.addEventListener('scroll', updateProgress, { passive: true });
+      window.addEventListener('resize', updateProgress);
+      updateProgress();
+
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            e.target.classList.add('in');
+            io.unobserve(e.target);
+          }
+        });
+      }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+
+      document.querySelectorAll('.reveal').forEach((el, i) => {
+        el.style.transitionDelay = Math.min(i * 55, 400) + 'ms';
+        io.observe(el);
+      });
+
+      document.querySelectorAll('.card').forEach((card) => {
+        card.addEventListener('mousemove', (e) => {
+          const r = card.getBoundingClientRect();
+          card.style.setProperty('--mx', ((e.clientX - r.left) / r.width * 100) + '%');
+          card.style.setProperty('--my', ((e.clientY - r.top) / r.height * 100) + '%');
+        });
+      });
+    })();
+
+    /* =========================================================
+       Fetch latest release from GitHub Releases API
+       - Caches in sessionStorage for 30 minutes
+       - Falls back to /releases/latest page on error
+       ========================================================= */
+    (function () {
+      const REPO       = 'devfahim00/SparkTube';
+      const API        = `https://api.github.com/repos/${REPO}/releases/latest`;
+      const FALLBACK   = `https://github.com/${REPO}/releases/latest`;
+      const CACHE_KEY  = 'sparktube_release_v1';
+      const TTL        = 30 * 60 * 1000; // 30 min
+
+      /* --- helpers --- */
+      function formatBytes(bytes) {
+        if (!bytes && bytes !== 0) return '—';
+        const units = ['B', 'KB', 'MB', 'GB'];
+        let i = 0, n = bytes;
+        while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
+        return `${n.toFixed(n >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
+      }
+
+      function formatDate(iso) {
+        if (!iso) return '—';
+        const d = new Date(iso);
+        if (isNaN(d)) return '—';
+        return d.toLocaleDateString(undefined, {
+          year: 'numeric', month: 'short', day: 'numeric'
+        });
+      }
+
+      function setAll(selector, value) {
+        document.querySelectorAll(selector).forEach((el) => {
+          el.textContent = value;
+          el.classList.remove('loading');
+        });
+      }
+
+      function applyRelease(rel) {
+        if (!rel) return;
+        const tag = rel.tag_name || rel.name || 'latest';
+
+        const assets = rel.assets || [];
+        const apk =
+          assets.find((a) => a.name.toLowerCase().endsWith('.apk')) ||
+          assets.find((a) => a.name.toLowerCase().includes('apk')) ||
+          assets[0];
+
+        const apkUrl = apk?.browser_download_url || rel.html_url || FALLBACK;
+        const size   = apk?.size;
+        const date   = rel.published_at;
+
+        // version
+        setAll('[data-release="tag"]', tag);
+
+        // download links
+        document.querySelectorAll('[data-release="apk-url"]').forEach((el) => {
+          el.href = apkUrl;
+          if (apk?.name) el.setAttribute('download', apk.name);
+          el.setAttribute('title', `${apk?.name || 'APK'} · ${formatBytes(size)}`);
+        });
+
+        // size + date
+        setAll('[data-release="size"]', formatBytes(size));
+        setAll('[data-release="date"]', formatDate(date));
+
+        // update page title
+        document.title = `SparkTube ${tag} — Lightweight Anonymous YouTube Client for Android`;
+
+        // update og:title if present
+        const og = document.querySelector('meta[property="og:title"]');
+        if (og) og.setAttribute('content', `SparkTube ${tag} — Anonymous YouTube Client for Android`);
+      }
+
+      /* --- cache helpers --- */
+      function readCache() {
+        try {
+          const raw = sessionStorage.getItem(CACHE_KEY);
+          if (!raw) return null;
+          const { t, data } = JSON.parse(raw);
+          if (Date.now() - t > TTL) return null;
+          return data;
+        } catch { return null; }
+      }
+      function writeCache(data) {
+        try {
+          sessionStorage.setItem(CACHE_KEY, JSON.stringify({ t: Date.now(), data }));
+        } catch { /* ignore quota errors */ }
+      }
+
+      /* --- main --- */
+      const cached = readCache();
+      if (cached) {
+        applyRelease(cached);
+        return;
+      }
+
+      fetch(API, { headers: { 'Accept': 'application/vnd.github+json' } })
+        .then((res) => {
+          if (!res.ok) throw new Error(`GitHub API ${res.status}`);
+          return res.json();
+        })
+        .then((rel) => {
+          writeCache(rel);
+          applyRelease(rel);
+        })
+        .catch((err) => {
+          console.warn('[SparkTube] Could not fetch release info:', err);
+          // graceful fallback
+          document.querySelectorAll('[data-release="apk-url"]').forEach((el) => {
+            el.href = FALLBACK;
+          });
+          document.querySelectorAll('[data-release="size"]').forEach((el) => {
+            el.textContent = 'latest';
+            el.classList.remove('loading');
+          });
+          document.querySelectorAll('[data-release="date"]').forEach((el) => {
+            el.textContent = 'GitHub';
+            el.classList.remove('loading');
+          });
+        });
+    })();
+  </script>
+</body>
+</html>
