@@ -25,7 +25,7 @@ No Google account. No API keys. No tracking. No live streams.
 [![Last commit](https://img.shields.io/github/last-commit/devfahim00/SparkTube?style=flat-square&logo=git&logoColor=white&color=green)](https://github.com/devfahim00/SparkTube/commits/main)
 [![Repo size](https://img.shields.io/github/repo-size/devfahim00/SparkTube?style=flat-square&color=orange)](https://github.com/devfahim00/SparkTube)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square)](#-contributing)
-[![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](#-license)
+[![License](https://img.shields.io/badge/License-GPLv3-blue?style=flat-square)](#-license)
 
 [**Download**](#-download) •
 [**Features**](#-features) •
@@ -372,7 +372,7 @@ your device model, and Android version.
 
 ## 📄 License
 
-Distributed under the **MIT License**. See the `LICENSE` file for more information.
+Distributed under the **GPLv3**. See the `LICENSE` file for more information.
 
 
 ---
