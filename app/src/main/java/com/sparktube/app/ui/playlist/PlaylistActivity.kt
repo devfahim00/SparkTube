@@ -11,18 +11,20 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.sparktube.app.R
 import com.sparktube.app.data.LocalStore
 import com.sparktube.app.databinding.ActivityPlaylistBinding
-import com.sparktube.app.download.DownloadCenter
 import com.sparktube.app.playback.PlaybackCenter
 import com.sparktube.app.ui.common.VideoAdapter
 import com.sparktube.app.ui.common.VideoUiModel
+import com.sparktube.app.ui.common.toQueueEntry
 import com.sparktube.app.ui.common.toUiModel
 import com.sparktube.app.ui.player.PlayerActivity
 import com.sparktube.app.util.Themes
 
 /**
- * One playlist's videos. Tapping a video plays it — from the local download
- * when a finished one exists (works offline), online otherwise. Long-press
- * removes a video from the playlist.
+ * One playlist's videos. "Play all" starts the list from the top; tapping a
+ * video starts it from that video. Either way the playlist becomes the play
+ * queue, so each video that finishes hands over to the next one in the list.
+ * A video with a finished local download plays from disk (works offline).
+ * Long-press removes a video from the playlist.
  */
 class PlaylistActivity : AppCompatActivity() {
 
@@ -30,6 +32,9 @@ class PlaylistActivity : AppCompatActivity() {
     private lateinit var adapter: VideoAdapter
 
     private var playlistId = -1L
+
+    /** The playlist's videos as currently shown (the play queue is built from this). */
+    private var videos: List<VideoUiModel> = emptyList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         Themes.apply(this)
@@ -40,7 +45,7 @@ class PlaylistActivity : AppCompatActivity() {
         playlistId = intent.getLongExtra(EXTRA_ID, -1L)
 
         adapter = VideoAdapter(
-            onClick = { model -> play(model) },
+            onClick = { model -> playFrom(videos.indexOfFirst { it.url == model.url }) },
             onLongClick = { model ->
                 confirmRemove(model)
                 true
@@ -50,6 +55,7 @@ class PlaylistActivity : AppCompatActivity() {
         binding.list.adapter = adapter
 
         binding.backButton.setOnClickListener { finish() }
+        binding.playAllButton.setOnClickListener { playFrom(0) }
     }
 
     override fun onResume() {
@@ -67,22 +73,27 @@ class PlaylistActivity : AppCompatActivity() {
             return
         }
         binding.title.text = playlist.name
-        adapter.submitList(playlist.items.map { it.toUiModel() })
+        videos = playlist.items.map { it.toUiModel() }
+        adapter.submitList(videos)
+        binding.playAllRow.isVisible = videos.isNotEmpty()
+        binding.videoCount.text = resources.getQuantityString(
+            R.plurals.playlist_video_count, videos.size, videos.size
+        )
         binding.emptyView.setText(R.string.empty_playlist_videos)
-        binding.emptyView.isVisible = playlist.items.isEmpty()
+        binding.emptyView.isVisible = videos.isEmpty()
     }
 
-    private fun play(model: VideoUiModel) {
-        // Prefer a finished local download of this video (offline-friendly).
-        val record = DownloadCenter.recordsFor(this, model.url)
-            .filter { it.status == DownloadCenter.STATUS_DONE && it.type != DownloadCenter.TYPE_AUDIO }
-            .firstOrNull()
-        if (record != null) {
-            PlaybackCenter.playDownload(record)
-            PlayerActivity.startResume(this)
-        } else {
-            PlayerActivity.start(this, model)
-        }
+    /**
+     * Makes the whole playlist the play queue and opens the watch page on
+     * [index]. Playback starts first and the page then attaches to it — the
+     * same hand-off the mini player uses — so the queue (next / previous and
+     * the auto-advance when a video ends) lives in PlaybackCenter and keeps
+     * working when the page is closed into the mini player.
+     */
+    private fun playFrom(index: Int) {
+        if (videos.isEmpty()) return
+        PlaybackCenter.playPlaylist(videos.map { it.toQueueEntry() }, index.coerceAtLeast(0))
+        PlayerActivity.startResume(this)
     }
 
     private fun confirmRemove(model: VideoUiModel) {

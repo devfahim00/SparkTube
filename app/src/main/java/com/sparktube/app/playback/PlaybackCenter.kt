@@ -38,6 +38,7 @@ import com.sparktube.app.net.OkHttpDownloader
 import com.sparktube.app.net.ParallelRangeDataSource
 import com.sparktube.app.util.AppPrefs
 import com.google.common.util.concurrent.ListenableFuture
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -188,8 +189,22 @@ object PlaybackCenter {
     private var watchdogJob: Job? = null
     private var watchdogDownshifts = 0
 
-    /** Watchdog: ms without a first frame before dropping one quality tier. */
-    private val STARTUP_LIMIT_MS = 5_000L
+    /**
+     * Height the startup watchdog dropped the CURRENT video to. Kept apart
+     * from [selectedHeight] (the user's own pick) on purpose: a slow start
+     * on one video must not silently cap every following video — and, with
+     * playlists, the whole rest of the list — to the lower quality. Cleared
+     * whenever a new video starts resolving or the user picks a quality.
+     */
+    private var downshiftHeight: Int? = null
+
+    /**
+     * Watchdog: ms without a first frame before dropping one quality tier.
+     * 10s (was 5s): a cold start pays one-off DNS / TCP / TLS / CDN costs
+     * that a warm re-open (manual quality switch, seek) does not, so 5s
+     * downshifted streams that would have started fine a moment later.
+     */
+    private val STARTUP_LIMIT_MS = 10_000L
 
     /** Watchdog: ms of a post-start stall before dropping one quality tier. */
     private val STALL_LIMIT_MS = 4_000L
@@ -222,6 +237,19 @@ object PlaybackCenter {
         private set
     var radioMode: Boolean = false
         private set
+
+    /**
+     * True while the video queue is a fixed playlist ("Play all" or a video
+     * tapped inside a playlist): the queue is exactly the playlist — no
+     * related videos get appended — the next item always follows the
+     * current one, and an unplayable item is skipped instead of stopping.
+     */
+    @Volatile var playlistMode: Boolean = false
+        private set
+
+    /** True while an item's streams are being resolved (spinner state for late listeners). */
+    @Volatile var isResolving: Boolean = false
+        private set
     private var usedFallback = false
 
     var catalog: StreamCatalog? = null
@@ -244,6 +272,7 @@ object PlaybackCenter {
      * shows up as "720p" instead of "Auto".
      */
     fun effectiveSelectedHeight(c: StreamCatalog): Int? {
+        downshiftHeight?.let { return it }
         selectedHeight?.let { return it }
         if (autoPicked) return null
         val default = AppPrefs.defaultVideoHeightNow(appContext)
@@ -327,8 +356,10 @@ object PlaybackCenter {
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {
+            // A playlist always continues to its next video (like YouTube);
+            // the autoplay setting only governs the related-videos queue.
             if (playbackState == Player.STATE_ENDED && mode == Mode.VIDEO &&
-                AppPrefs.videoAutoplayNext
+                (playlistMode || AppPrefs.videoAutoplayNext)
             ) {
                 advance()
             }
@@ -413,8 +444,27 @@ object PlaybackCenter {
         stopPlayerNow()
         mode = Mode.VIDEO
         radioMode = false
+        playlistMode = false
         audioOnlyMode = false
         setQueue(listOf(entry) + extraQueue, 0)
+        resolveCurrent()
+    }
+
+    /**
+     * Plays a fixed video playlist starting at [startIndex]. The whole list
+     * is the queue (previous / next work across it) and every video that
+     * finishes hands over to the next one; nothing else is mixed in.
+     * Downloaded videos in the list play from disk (offline-friendly).
+     */
+    fun playPlaylist(entries: List<QueueEntry>, startIndex: Int = 0) {
+        initFromApp()
+        if (entries.isEmpty()) return
+        stopPlayerNow()
+        mode = Mode.VIDEO
+        radioMode = false
+        playlistMode = true
+        audioOnlyMode = false
+        setQueue(entries, startIndex.coerceIn(0, entries.size - 1))
         resolveCurrent()
     }
 
@@ -439,11 +489,12 @@ object PlaybackCenter {
         stopPlayerNow()
         mode = Mode.AUDIO
         radioMode = allowRadio
+        playlistMode = false
         audioOnlyMode = false
         pendingMusic.clear()
         setQueue(playlist, 0)
         resolveJob?.cancel()
-        notify { it.onResolvingChanged(true) }
+        setResolving(true)
         resolveJob = scope.launch {
             try {
                 val first = currentEntry ?: return@launch
@@ -473,7 +524,7 @@ object PlaybackCenter {
             } catch (e: Exception) {
                 notify { it.onError(if (e.message.isNullOrBlank()) e.javaClass.simpleName else e.message!!) }
             } finally {
-                notify { it.onResolvingChanged(false) }
+                setResolving(false)
             }
         }
     }
@@ -546,6 +597,7 @@ object PlaybackCenter {
             clearMediaItems()
         }
         mode = Mode.NONE
+        playlistMode = false
         queue.clear()
         queueIndex = -1
         catalog = null
@@ -575,6 +627,7 @@ object PlaybackCenter {
         usedFallback = false
         // The user took manual control of quality — stop auto-downshifting.
         watchdogJob?.cancel()
+        downshiftHeight = null
         rebuildSource(keepPosition = true)
     }
 
@@ -626,6 +679,7 @@ object PlaybackCenter {
         mode = if (record.type == DownloadCenter.TYPE_AUDIO) Mode.AUDIO else Mode.VIDEO
         audioOnlyMode = record.type == DownloadCenter.TYPE_AUDIO
         radioMode = false
+        playlistMode = false
         pendingMusic.clear()
         queue.clear()
         queue.add(
@@ -642,6 +696,17 @@ object PlaybackCenter {
         notify { it.onQueueChanged() }
         notify { it.onItemChanged(currentEntry) }
 
+        if (!startLocalFiles(record)) {
+            notify { it.onError("Downloaded file is missing") }
+            return
+        }
+        catalog = null
+        notify { it.onCatalogReady() }
+        ensureService()
+    }
+
+    /** Prepares and starts the finished download's files on the player. False when none exist. */
+    private fun startLocalFiles(record: DownloadRecord): Boolean {
         val sources = record.filePaths
             .filter { File(it).exists() }
             .map { path ->
@@ -649,10 +714,7 @@ object PlaybackCenter {
                     MediaItem.Builder().setUri(Uri.fromFile(File(path))).build()
                 )
             }
-        if (sources.isEmpty()) {
-            notify { it.onError("Downloaded file is missing") }
-            return
-        }
+        if (sources.isEmpty()) return false
         val source = if (sources.size == 1) sources[0] else MergingMediaSource(*sources.toTypedArray())
         player.run {
             setMediaSource(source, 0L)
@@ -660,10 +722,17 @@ object PlaybackCenter {
             playWhenReady = true
             setPlaybackSpeed(playbackSpeed)
         }
-        catalog = null
-        notify { it.onCatalogReady() }
-        ensureService()
+        return true
     }
+
+    /** A finished on-device video download of [url] whose files are all still there, if any. */
+    private fun localVideoRecord(url: String): DownloadRecord? =
+        DownloadCenter.recordsFor(appContext, url).firstOrNull { record ->
+            record.status == DownloadCenter.STATUS_DONE &&
+                record.type != DownloadCenter.TYPE_AUDIO &&
+                record.filePaths.isNotEmpty() &&
+                record.filePaths.all { File(it).exists() }
+        }
 
     // ----- Resolution -----
 
@@ -684,15 +753,28 @@ object PlaybackCenter {
     private fun resolveCurrent() {
         val entry = currentEntry ?: return
         resolveJob?.cancel()
+        // A previous video's startup watchdog must not act on this one, and
+        // its quality drop applies to that video only.
+        watchdogJob?.cancel()
+        downshiftHeight = null
         // Drop the PREVIOUS video's catalog immediately: the watch page
         // listens to onItemChanged and re-binds from the entry alone, so the
         // action pills / subscribe / views of the old video must not linger
         // (and must stay hidden) until the new catalog arrives.
         catalog = null
         notify { it.onItemChanged(currentEntry) }
-        notify { it.onResolvingChanged(true) }
+        setResolving(true)
         resolveJob = scope.launch {
             try {
+                // Playlist videos with a finished download play from disk:
+                // no network needed, so an offline playlist keeps working.
+                val local = if (playlistMode) localVideoRecord(entry.url) else null
+                if (local != null && startLocalFiles(local)) {
+                    notify { it.onItemChanged(currentEntry) }
+                    notify { it.onCatalogReady() }
+                    ensureService()
+                    return@launch
+                }
                 val info = YtRepository.streamInfo(entry.url)
                 if (LiveFilter.isLive(info)) {
                     throw IllegalArgumentException("LIVE_CONTENT")
@@ -706,18 +788,50 @@ object PlaybackCenter {
                 notify { it.onCatalogReady() }
                 extendQueueFromRelated()
                 ensureService()
+            } catch (e: CancellationException) {
+                // Superseded by a newer resolve: not an error for the user.
+                throw e
             } catch (e: Exception) {
-                notify { it.onError(if (e.message.isNullOrBlank()) e.javaClass.simpleName else e.message!!) }
+                // In a playlist an unavailable / live item is skipped so the
+                // rest of the list still plays.
+                if (!skipBrokenPlaylistItem()) {
+                    notify { it.onError(if (e.message.isNullOrBlank()) e.javaClass.simpleName else e.message!!) }
+                }
             } finally {
-                notify { it.onResolvingChanged(false) }
+                setResolving(false)
             }
         }
+    }
+
+    /** Tracks + broadcasts "resolving" so a screen that attaches late can still show the spinner. */
+    private fun setResolving(resolving: Boolean) {
+        isResolving = resolving
+        notify { it.onResolvingChanged(resolving) }
+    }
+
+    /**
+     * Playlist playback: hops over an item that cannot play (removed video,
+     * live stream, hard playback error) so the list keeps going. Returns
+     * false when this is not a playlist or it was the last item — the caller
+     * then reports the error as usual.
+     */
+    private fun skipBrokenPlaylistItem(): Boolean {
+        if (!playlistMode || mode != Mode.VIDEO || queueIndex >= queue.size - 1) return false
+        val failedIndex = queueIndex
+        notify { it.onNotice("This video can't be played — skipping to the next one") }
+        // Posted rather than called inline: this can run inside the resolve
+        // coroutine that next() is about to cancel and replace. The index
+        // check drops the hop if the user already moved on by themselves.
+        scope.launch(Dispatchers.Main) {
+            if (mode == Mode.VIDEO && playlistMode && queueIndex == failedIndex) next()
+        }
+        return true
     }
 
     /** Music mode: resolve metadata for the current song (downloads, radio). */
     private fun resolveCatalog(entry: QueueEntry) {
         resolveJob?.cancel()
-        notify { it.onResolvingChanged(true) }
+        setResolving(true)
         resolveJob = scope.launch {
             try {
                 val info = YtRepository.streamInfo(entry.url)
@@ -738,13 +852,14 @@ object PlaybackCenter {
             } catch (e: Exception) {
                 notify { it.onError(if (e.message.isNullOrBlank()) e.javaClass.simpleName else e.message!!) }
             } finally {
-                notify { it.onResolvingChanged(false) }
+                setResolving(false)
             }
         }
     }
 
     /** Appends related items so next/previous + autoplay keep working (video mode). */
     private fun extendQueueFromRelated() {
+        if (playlistMode) return
         val rel = catalog?.related ?: return
         val known = queue.map { it.url }.toSet()
         val additions = rel.filter { it.url !in known }.take(20)
@@ -793,7 +908,9 @@ object PlaybackCenter {
             return
         }
         val c = catalog ?: run {
-            notify { it.onError("Playback error: ${error.errorCodeName}") }
+            if (!skipBrokenPlaylistItem()) {
+                notify { it.onError("Playback error: ${error.errorCodeName}") }
+            }
             return
         }
         // The selected dubbing track failed to load: retry once with the
@@ -818,6 +935,7 @@ object PlaybackCenter {
             notify { it.onCatalogReady() }
             return
         }
+        if (skipBrokenPlaylistItem()) return
         notify { it.onError("Playback error: ${error.errorCodeName}") }
     }
 
@@ -910,8 +1028,9 @@ object PlaybackCenter {
             .sortedDescending()
         if (lower.isEmpty()) return false
         val target = lower.first()
-        selectedHeight = target
-        autoPicked = false
+        // Only THIS video is dropped; the user's own pick / settings default
+        // stay untouched for the next video.
+        downshiftHeight = target
         // Honor the explicit height even if an earlier error had forced the
         // muxed fallback (a failure here just re-triggers that fallback).
         usedFallback = false
@@ -982,7 +1101,7 @@ object PlaybackCenter {
 
     private fun videoForSelection(c: StreamCatalog): VideoStream? {
         if (usedFallback && c.muxed.isNotEmpty()) return c.muxed.first()
-        val height = selectedHeight
+        val height = downshiftHeight ?: selectedHeight
         return when {
             height == null -> {
                 val default = AppPrefs.defaultVideoHeightNow(appContext)

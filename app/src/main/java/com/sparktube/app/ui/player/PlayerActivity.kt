@@ -393,6 +393,10 @@ class PlayerActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         PlaybackCenter.addListener(playbackListener)
+        // Playback can start resolving BEFORE this page is listening (Play
+        // all / a playlist video starts the queue, then opens the page), so
+        // pick the spinner state up here instead of missing it.
+        binding.loading.isVisible = PlaybackCenter.isResolving && !binding.errorView.isVisible
         downloadHandler.post(downloadPoll)
         if (PlaybackCenter.hasMedia) {
             PlaybackCenter.player.playWhenReady = true
@@ -402,8 +406,40 @@ class PlayerActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         if (Themes.recreateIfNeeded(this)) return
+        applyCloseTransition()
         if (!isInPictureInPictureMode) {
             PlaybackCenter.attachView(binding.playerView)
+        }
+    }
+
+    // ----- Close animation -----
+
+    /**
+     * Android 14+: registers the close animation once for this page. The
+     * default activity-close animation slides the page sideways (left to
+     * right on most devices), which reads wrong when the video is really
+     * collapsing DOWN into the mini player at the bottom of the screen.
+     */
+    private fun applyCloseTransition() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return
+        if (AppPrefs.animations) {
+            overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, 0, R.anim.slide_down_out)
+        } else {
+            clearOverrideActivityTransition(OVERRIDE_TRANSITION_CLOSE)
+        }
+    }
+
+    /**
+     * Every way out of the watch page (swipe down, back button / gesture,
+     * "play in background") collapses into the mini player, so all of them
+     * slide down. Older Android has no per-activity registration: the
+     * override has to be requested right after finish().
+     */
+    @Suppress("DEPRECATION")
+    override fun finish() {
+        super.finish()
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE && AppPrefs.animations) {
+            overridePendingTransition(0, R.anim.slide_down_out)
         }
     }
 
