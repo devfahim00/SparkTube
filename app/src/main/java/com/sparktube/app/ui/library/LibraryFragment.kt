@@ -18,14 +18,16 @@ import com.sparktube.app.playback.PlaybackCenter
 import com.sparktube.app.ui.channel.ChannelActivity
 import com.sparktube.app.ui.common.ChannelRowAdapter
 import com.sparktube.app.ui.common.DownloadAdapter
+import com.sparktube.app.ui.common.PlaylistAdapter
 import com.sparktube.app.ui.common.VideoAdapter
 import com.sparktube.app.ui.common.toEntry
 import com.sparktube.app.ui.common.toUiModel
 import com.sparktube.app.ui.player.PlayerActivity
+import com.sparktube.app.ui.playlist.PlaylistActivity
 
 /**
- * Library: History, Favorites, Subscriptions and Downloads tabs. Everything
- * is stored locally on the device.
+ * Library: History, Favorites, Subscriptions, Downloads and Playlists tabs.
+ * Everything is stored locally on the device.
  */
 class LibraryFragment : Fragment() {
 
@@ -35,6 +37,7 @@ class LibraryFragment : Fragment() {
     private lateinit var videoAdapter: VideoAdapter
     private lateinit var channelAdapter: ChannelRowAdapter
     private lateinit var downloadAdapter: DownloadAdapter
+    private lateinit var playlistAdapter: PlaylistAdapter
 
     private var tab = TAB_HISTORY
 
@@ -78,6 +81,12 @@ class LibraryFragment : Fragment() {
             onClick = { record -> PlaybackCenter.playDownload(record) },
             onLongClick = { record -> confirmDelete(record) }
         )
+        playlistAdapter = PlaylistAdapter(
+            onClick = { playlist ->
+                PlaylistActivity.start(requireContext(), playlist.id)
+            },
+            onLongClick = { playlist -> confirmDeletePlaylist(playlist) }
+        )
 
         binding.list.layoutManager = LinearLayoutManager(requireContext())
         binding.list.adapter = videoAdapter
@@ -111,6 +120,7 @@ class LibraryFragment : Fragment() {
             TAB_HISTORY -> bindVideos(LocalStore.history(context), R.string.empty_history)
             TAB_FAVORITES -> bindVideos(LocalStore.videoFavorites(context), R.string.empty_favorites)
             TAB_SUBSCRIPTIONS -> bindChannels()
+            TAB_PLAYLISTS -> bindPlaylists()
             else -> bindDownloads()
         }
     }
@@ -142,6 +152,28 @@ class LibraryFragment : Fragment() {
         binding.emptyView.isVisible = downloads.isEmpty()
     }
 
+    private fun bindPlaylists() {
+        val context = context ?: return
+        val playlists = LocalStore.playlists(context)
+        binding.list.adapter = playlistAdapter
+        playlistAdapter.submitList(playlists)
+        binding.emptyView.setText(R.string.empty_playlists)
+        binding.emptyView.isVisible = playlists.isEmpty()
+    }
+
+    private fun confirmDeletePlaylist(playlist: com.sparktube.app.data.Playlist) {
+        AlertDialog.Builder(requireContext())
+            .setTitle(R.string.delete_playlist_confirm)
+            .setMessage(playlist.name)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                LocalStore.deletePlaylist(requireContext(), playlist.id)
+                Toast.makeText(requireContext(), R.string.playlist_deleted, Toast.LENGTH_SHORT).show()
+                refresh()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
     private fun confirmDelete(record: com.sparktube.app.data.DownloadRecord) {
         AlertDialog.Builder(requireContext())
             .setTitle(R.string.download_delete_confirm)
@@ -165,5 +197,6 @@ class LibraryFragment : Fragment() {
         private const val TAB_FAVORITES = 1
         private const val TAB_SUBSCRIPTIONS = 2
         private const val TAB_DOWNLOADS = 3
+        private const val TAB_PLAYLISTS = 4
     }
 }

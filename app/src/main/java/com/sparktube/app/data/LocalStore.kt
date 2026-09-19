@@ -36,6 +36,14 @@ data class DownloadRecord(
     val downloadIds: List<Long>
 )
 
+/** A user-created playlist with its saved videos (all local, account-free). */
+data class Playlist(
+    val id: Long,
+    val name: String,
+    val createdAt: Long,
+    val items: List<VideoEntry>
+)
+
 /**
  * Tiny JSON-in-SharedPreferences store for watch history, favorites,
  * subscriptions and downloads. No accounts needed: everything stays on
@@ -48,11 +56,13 @@ object LocalStore {
     private const val KEY_FAVORITES = "favorites_json"
     private const val KEY_SUBSCRIPTIONS = "subscriptions_json"
     private const val KEY_DOWNLOADS = "downloads_json"
+    private const val KEY_PLAYLISTS = "playlists_json"
     private const val KEY_SEARCHES = "searches_json"
     private const val MAX_HISTORY = 200
     private const val MAX_FAVORITES = 500
     private const val MAX_SUBSCRIPTIONS = 200
     private const val MAX_SEARCHES = 20
+    private const val MAX_PLAYLIST_VIDEOS = 500
 
     private fun prefs(context: Context) =
         context.applicationContext.getSharedPreferences("sparktube_local", Context.MODE_PRIVATE)
@@ -247,6 +257,78 @@ object LocalStore {
         prefs(context).edit().remove(KEY_DOWNLOADS).apply()
     }
 
+    // ----- Playlists -----
+
+    /** All playlists, newest first. */
+    fun playlists(context: Context): List<Playlist> =
+        readPlaylists(prefs(context))
+
+    fun playlist(context: Context, id: Long): Playlist? =
+        playlists(context).firstOrNull { it.id == id }
+
+    /**
+     * Creates a playlist. @return the new playlist, or null when the name is
+     * empty or another playlist already uses it (case-insensitive).
+     */
+    fun createPlaylist(context: Context, name: String): Playlist? {
+        val clean = name.trim()
+        if (clean.isEmpty()) return null
+        val ctx = context.applicationContext
+        val list = playlists(ctx).toMutableList()
+        if (list.any { it.name.equals(clean, ignoreCase = true) }) return null
+        val playlist = Playlist(
+            id = System.currentTimeMillis(),
+            name = clean,
+            createdAt = System.currentTimeMillis(),
+            items = emptyList()
+        )
+        list.add(0, playlist)
+        writePlaylists(prefs(ctx), list)
+        return playlist
+    }
+
+    fun deletePlaylist(context: Context, id: Long) {
+        val ctx = context.applicationContext
+        val list = playlists(ctx).toMutableList()
+        list.removeAll { it.id == id }
+        writePlaylists(prefs(ctx), list)
+    }
+
+    /** @return true when the video was added; false when it was already in. */
+    fun addToPlaylist(context: Context, id: Long, entry: VideoEntry): Boolean {
+        val ctx = context.applicationContext
+        val list = playlists(ctx).toMutableList()
+        val idx = list.indexOfFirst { it.id == id }
+        if (idx < 0) return false
+        val target = list[idx]
+        if (target.items.any { it.url == entry.url }) return false
+        val items = target.items.toMutableList()
+        items.add(0, entry)
+        while (items.size > MAX_PLAYLIST_VIDEOS) {
+            items.removeAt(items.size - 1)
+        }
+        list[idx] = target.copy(items = items)
+        writePlaylists(prefs(ctx), list)
+        return true
+    }
+
+    /** @return true when a video was actually removed. */
+    fun removeFromPlaylist(context: Context, id: Long, url: String): Boolean {
+        val ctx = context.applicationContext
+        val list = playlists(ctx).toMutableList()
+        val idx = list.indexOfFirst { it.id == id }
+        if (idx < 0) return false
+        val target = list[idx]
+        val items = target.items.filterNot { it.url == url }
+        if (items.size == target.items.size) return false
+        list[idx] = target.copy(items = items)
+        writePlaylists(prefs(ctx), list)
+        return true
+    }
+
+    fun isVideoInPlaylist(context: Context, id: Long, url: String): Boolean =
+        playlist(context, id)?.items?.any { it.url == url } == true
+
     // ----- JSON helpers -----
 
     private fun read(sp: android.content.SharedPreferences, key: String): List<VideoEntry> {
@@ -328,6 +410,62 @@ object LocalStore {
             emptyList()
         }
     }
+
+    // ----- Playlist JSON helpers -----
+
+    private fun readPlaylists(sp: android.content.SharedPreferences): List<Playlist> {
+        val raw = sp.getString(KEY_PLAYLISTS, null) ?: return emptyList()
+        return try {
+            val arr = JSONArray(raw)
+            (0 until arr.length()).mapNotNull { idx ->
+                val o = arr.getJSONObject(idx)
+                Playlist(
+                    id = o.optLong("id"),
+                    name = o.optString("name"),
+                    createdAt = o.optLong("created"),
+                    items = o.optJSONArray("items")?.let { items ->
+                        (0 until items.length()).mapNotNull { i ->
+                            val io = items.optJSONObject(i) ?: return@mapNotNull null
+                            entryFromJson(io)
+                        }
+                    } ?: emptyList()
+                )
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    private fun writePlaylists(sp: android.content.SharedPreferences, list: List<Playlist>) {
+        val arr = JSONArray()
+        list.forEach { playlist ->
+            arr.put(
+                JSONObject()
+                    .put("id", playlist.id)
+                    .put("name", playlist.name)
+                    .put("created", playlist.createdAt)
+                    .put("items", JSONArray(playlist.items.map { entryToJson(it) }))
+            )
+        }
+        sp.edit().putString(KEY_PLAYLISTS, arr.toString()).apply()
+    }
+
+    private fun entryFromJson(o: JSONObject): VideoEntry = VideoEntry(
+        url = o.optString("url"),
+        title = o.optString("title"),
+        uploader = o.optString("uploader"),
+        thumbnailUrl = o.optString("thumb"),
+        durationSec = o.optLong("duration"),
+        isMusic = o.optBoolean("music", false)
+    )
+
+    private fun entryToJson(entry: VideoEntry): JSONObject = JSONObject()
+        .put("url", entry.url)
+        .put("title", entry.title)
+        .put("uploader", entry.uploader)
+        .put("thumb", entry.thumbnailUrl)
+        .put("duration", entry.durationSec)
+        .put("music", entry.isMusic)
 
     // ----- Download JSON helpers -----
 

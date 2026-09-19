@@ -230,4 +230,29 @@
     <string name="already_downloaded">Already downloaded — see your downloads list</string>
     <string name="downloading_fmt">Downloading • %1$d%%</string>
     <string name="download_option_done">Downloaded</string>
+
+    <!-- Playlists -->
+    <string name="tab_playlists">Playlists</string>
+    <string name="action_playlist">Add to playlist</string>
+    <string name="playlist_sheet_title">Add to playlist</string>
+    <string name="playlist_sheet_empty">No playlists yet — create one to start organizing videos</string>
+    <string name="new_playlist">New playlist</string>
+    <string name="new_playlist_hint">Playlist name</string>
+    <string name="create_playlist">Create</string>
+    <string name="playlist_name_empty">Please enter a playlist name</string>
+    <string name="playlist_name_exists">A playlist with this name already exists</string>
+    <string name="playlist_added">Added</string>
+    <string name="saved_to_playlist_fmt">Saved to %1$s</string>
+    <string name="removed_from_playlist_fmt">Removed from %1$s</string>
+    <string name="removed_from_playlist">Removed from playlist</string>
+    <string name="remove_from_playlist_confirm">Remove this video from the playlist?</string>
+    <string name="empty_playlists">Use the Add to playlist button on any video to build your first playlist</string>
+    <string name="empty_playlist_videos">No videos in this playlist yet</string>
+    <string name="delete_playlist_confirm">Delete this playlist?</string>
+    <string name="playlist_deleted">Playlist deleted</string>
+
+    <plurals name="playlist_video_count">
+        <item quantity="one">%1$d video</item>
+        <item quantity="other">%1$d videos</item>
+    </plurals>
 </resources>

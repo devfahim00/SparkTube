@@ -119,6 +119,20 @@
                     </LinearLayout>
 
                     <LinearLayout
+                        android:id="@+id/actionPlaylist"
+                        style="@style/ActionPill">
+
+                        <ImageView
+                            style="@style/ActionPillIcon"
+                            android:src="@drawable/ic_video_library"
+                            app:tint="@color/on_surface" />
+
+                        <TextView
+                            style="@style/ActionPillText"
+                            android:text="@string/action_playlist" />
+                    </LinearLayout>
+
+                    <LinearLayout
                         android:id="@+id/actionShare"
                         style="@style/ActionPill">
 

@@ -61,6 +61,10 @@
             android:exported="false"
             android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize|uiMode" />
 
+        <activity
+            android:name=".ui.playlist.PlaylistActivity"
+            android:exported="false" />
+
         <service
             android:name=".playback.PlaybackService"
             android:exported="true"
