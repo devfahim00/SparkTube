@@ -8,7 +8,6 @@ No Google account. No API keys. No tracking. No live streams.
 
 <br>
 
-[![Download Latest APK](https://img.shields.io/badge/Download-Latest%20APK-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/devfahim00/SparkTube/releases/latest)
 [![Total Downloads](https://img.shields.io/github/downloads/devfahim00/SparkTube/total?style=for-the-badge&logo=github&label=Total%20Downloads&color=success)](https://github.com/devfahim00/SparkTube/releases)
 [![Latest Release](https://img.shields.io/github/v/release/devfahim00/SparkTube?style=for-the-badge&logo=github&label=Latest%20Release&color=blue)](https://github.com/devfahim00/SparkTube/releases/latest)
 
@@ -98,7 +97,6 @@ results, and not in the player — keeping the experience focused purely on on-d
 
 ## 📸 Screenshots
 
-> Add your screenshots to a `docs/screenshots/` folder and update the paths below.
 
 <div align="center">
 
@@ -181,9 +179,6 @@ Get the latest pre-built APK straight from the **Releases** page — no build re
 3. On your Android device, allow **Install unknown apps** for your browser or file manager.
 4. Open the downloaded APK and tap **Install**.
 
-> 💡 Prefer the newest untested build? Every push also produces a debug APK — see the
-> [Actions](https://github.com/devfahim00/SparkTube/actions) tab and download it from a run's **Artifacts**.
-
 ---
 
 ## 🚀 Getting Started
@@ -223,14 +218,6 @@ app/build/outputs/apk/debug/
 2. Wait for the Gradle sync to complete (make sure the Gradle JDK is set to **17**).
 3. Connect a device or start an emulator.
 4. Press **Run ▶️**.
-
----
-
-## 🔄 Continuous Integration
-
-SparkTube uses **GitHub Actions** to build a **debug APK on every push**.
-Workflow definitions live in [`.github/workflows`](.github/workflows), and build outputs are published as
-run artifacts under the [Actions](https://github.com/devfahim00/SparkTube/actions) tab.
 
 ---
 
@@ -387,8 +374,6 @@ your device model, and Android version.
 
 Distributed under the **MIT License**. See the `LICENSE` file for more information.
 
-> ℹ️ Make sure a `LICENSE` file exists in the repository root. NewPipeExtractor is licensed under
-> GPL-3.0 — review its license terms and pick a license for SparkTube that is compatible with it.
 
 ---
 
