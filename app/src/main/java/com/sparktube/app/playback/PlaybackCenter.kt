@@ -102,6 +102,16 @@ class StreamCatalog(info: StreamInfo) {
     val viewCount: Long = info.viewCount
     val durationSec: Long = info.duration
 
+    /** Video description (HTML for YouTube) — folded/unfolded on the watch page. */
+    val description: String = info.description?.content.orEmpty()
+    val descriptionIsHtml: Boolean =
+        info.description?.type == org.schabi.newpipe.extractor.stream.Description.HTML
+
+    /** Relative upload date, e.g. "3 days ago" (empty when unknown). */
+    val uploadDateText: String =
+        com.sparktube.app.util.Formatters.formatRelativeTime(info.textualUploadDate)
+    val likeCount: Long = info.likeCount
+
     /** Video-only adaptive streams (higher qualities), distinct heights, best first. */
     val videoOnly: List<VideoStream> = info.videoOnlyStreams
         .filter { it.isUrl && it.effectiveHeight() > 0 }
@@ -543,6 +553,28 @@ object PlaybackCenter {
             } finally {
                 setResolving(false)
             }
+        }
+    }
+
+    /**
+     * Jumps straight to a queue position — used by the music queue / radio
+     * picker so the user can choose what plays next instead of being stuck
+     * with the auto-generated order.
+     */
+    fun playQueueIndex(index: Int) {
+        if (index < 0 || index >= queue.size) return
+        when (mode) {
+            Mode.AUDIO -> playerRef?.let { p ->
+                if (index < p.mediaItemCount) {
+                    p.seekTo(index, 0L)
+                    p.playWhenReady = true
+                }
+            }
+            Mode.VIDEO -> {
+                queueIndex = index
+                resolveCurrent()
+            }
+            Mode.NONE -> Unit
         }
     }
 

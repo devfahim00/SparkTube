@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.text.method.LinkMovementMethod
 import android.util.Rational
 import android.util.TypedValue
 import android.view.GestureDetector
@@ -27,6 +28,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.core.view.doOnPreDraw
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
 import androidx.media3.common.util.UnstableApi
@@ -37,6 +39,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.sparktube.app.R
+import com.sparktube.app.data.CommentsPage
 import com.sparktube.app.data.LocalStore
 import com.sparktube.app.data.YtRepository
 import com.sparktube.app.databinding.ActivityPlayerBinding
@@ -47,6 +50,7 @@ import com.sparktube.app.playback.StreamCatalog
 import com.sparktube.app.playback.effectiveHeight
 import com.sparktube.app.playback.toVideoEntry
 import com.sparktube.app.ui.channel.ChannelActivity
+import com.sparktube.app.ui.common.CommentAdapter
 import com.sparktube.app.ui.common.VideoAdapter
 import com.sparktube.app.ui.common.toQueueEntry
 import com.sparktube.app.ui.common.toUiModel
@@ -55,12 +59,16 @@ import com.sparktube.app.util.Formatters
 import com.sparktube.app.util.Themes
 import com.sparktube.app.util.Thumbs
 import coil.load
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 /**
- * YouTube-style watch page: standard 16:9 player on top, title, views,
- * action pills (favorite / share / download / background audio / PiP),
- * channel row with subscribe and related videos below. Quality, playback
+ * YouTube-style watch page: standard 16:9 player on top, title, a foldable
+ * description card (views · date, tap to expand), channel row with
+ * subscribe, action pills (favorite / share / download / background audio /
+ * PiP), a comments card that opens a full comments sheet, and related
+ * videos below. Quality, playback
  * speed and the dubbing audio track live inside the player's gear menu.
  * A swipe down on the video shrinks playback into the mini player.
  */
@@ -76,6 +84,15 @@ class PlayerActivity : AppCompatActivity() {
 
     /** Mirrors the built-in controller's visibility (gear / seek controls). */
     private var controllerVisible = false
+
+    // ----- Description (fold / unfold) -----
+    private var descExpanded = false
+    private var descBoundFor: String? = null
+
+    // ----- Comments -----
+    private var commentsFor: String? = null
+    private var commentsPage: CommentsPage? = null
+    private var commentsJob: Job? = null
 
     private val playbackListener = object : PlaybackCenter.Listener {
         override fun onItemChanged(entry: QueueEntry?) {
@@ -165,6 +182,13 @@ class PlayerActivity : AppCompatActivity() {
         // the moment the screen opened).
         binding.actionRow.isVisible = false
         binding.subscribeButton.isVisible = false
+
+        // Foldable description + comments entry (both appear once the
+        // video's catalog has loaded).
+        binding.description.setLinkTextColor(Themes.accentColor(this))
+        binding.descCard.setOnClickListener { toggleDescription() }
+        binding.descToggle.setOnClickListener { toggleDescription() }
+        binding.commentsCard.setOnClickListener { openComments() }
 
         relatedAdapter = VideoAdapter(onClick = { model ->
             // Play inside this page so swipe/mini flow keeps working.
@@ -598,18 +622,179 @@ class PlayerActivity : AppCompatActivity() {
 
         if (catalog != null) {
             binding.title.text = catalog.name.ifBlank { entry.title }
-            binding.views.text = when {
-                catalog.viewCount >= 0 ->
-                    getString(R.string.views_fmt, Formatters.formatViewCount(catalog.viewCount))
-                else -> ""
-            }
+            bindDescription(catalog, entry.url)
+            maybeLoadComments(entry.url)
             binding.channelName.text = catalog.uploaderName.ifBlank { entry.uploader }
             if (catalog.uploaderAvatarUrl.isNotBlank()) {
                 Thumbs.load(binding.channelAvatar, catalog.uploaderAvatarUrl)
             }
             relatedAdapter.submitList(catalog.related.map { it.toUiModel() })
+        } else {
+            // New video still resolving: nothing of the old one may linger.
+            binding.descCard.isVisible = false
+            descBoundFor = null
+            resetComments()
         }
         updateSubscribeUi()
+    }
+
+    // ----- Description card -----
+
+    /** Views · date line plus the description, folded to 3 lines by default. */
+    private fun bindDescription(catalog: StreamCatalog, url: String) {
+        val meta = listOfNotNull(
+            catalog.viewCount.takeIf { it >= 0 }
+                ?.let { getString(R.string.views_fmt, Formatters.formatViewCount(it)) },
+            catalog.uploadDateText.takeIf { it.isNotBlank() }
+        ).joinToString("  ·  ")
+        binding.views.text = meta
+        binding.descCard.isVisible = true
+
+        // Already bound for this video (e.g. audio-only toggle): keep the
+        // user's fold state instead of collapsing under them.
+        if (descBoundFor == url) return
+        descBoundFor = url
+        descExpanded = false
+        applyDescriptionState(animate = false)
+
+        val text = CommentAdapter.bodyToText(catalog.description, catalog.descriptionIsHtml)
+        val hasDescription = text.isNotBlank()
+        binding.description.isVisible = hasDescription
+        binding.descCard.isClickable = hasDescription
+        binding.descChevron.isVisible = hasDescription
+        binding.descToggle.isVisible = false
+        if (hasDescription) {
+            binding.description.text = text
+            // Only offer "Show more" when the text really is cut off.
+            binding.description.doOnPreDraw { updateDescToggleVisibility() }
+        }
+    }
+
+    private fun updateDescToggleVisibility() {
+        val layout = binding.description.layout ?: return
+        val truncated = layout.lineCount > 0 &&
+            layout.getEllipsisCount(layout.lineCount - 1) > 0
+        val show = descExpanded || truncated
+        binding.descToggle.isVisible = show
+        binding.descChevron.isVisible = show
+    }
+
+    private fun toggleDescription() {
+        if (!binding.description.isVisible) return
+        descExpanded = !descExpanded
+        applyDescriptionState(animate = true)
+    }
+
+    private fun applyDescriptionState(animate: Boolean) {
+        val animated = animate && AppPrefs.animations
+        if (animated) {
+            android.transition.TransitionManager.beginDelayedTransition(
+                binding.scrollContent,
+                android.transition.ChangeBounds().apply { duration = 200 }
+            )
+        }
+        binding.description.maxLines = if (descExpanded) Int.MAX_VALUE else DESC_COLLAPSED_LINES
+        // Links only work while expanded: a link-enabled TextView swallows
+        // taps, which would stop the card itself from toggling.
+        binding.description.movementMethod =
+            if (descExpanded) LinkMovementMethod.getInstance() else null
+        binding.descToggle.setText(
+            if (descExpanded) R.string.desc_show_less else R.string.desc_show_more
+        )
+        val target = if (descExpanded) 0f else 180f
+        if (animated) {
+            binding.descChevron.animate().rotation(target).setDuration(200).start()
+        } else {
+            binding.descChevron.animate().cancel()
+            binding.descChevron.rotation = target
+        }
+        if (descExpanded) {
+            binding.descToggle.isVisible = true
+            binding.descChevron.isVisible = true
+        }
+    }
+
+    // ----- Comments card -----
+
+    private fun resetComments() {
+        commentsJob?.cancel()
+        commentsJob = null
+        commentsFor = null
+        commentsPage = null
+        binding.commentsCard.isVisible = false
+    }
+
+    /** Fetches the first comments page once per video for the preview card. */
+    private fun maybeLoadComments(url: String) {
+        // Downloaded files have no online comments.
+        if (url.startsWith("file://")) {
+            binding.commentsCard.isVisible = false
+            return
+        }
+        binding.commentsCard.isVisible = true
+        if (commentsFor == url) return
+        commentsFor = url
+        commentsPage = null
+        binding.commentsCount.text = ""
+        binding.commentsPreviewRow.isVisible = false
+        binding.commentsStatus.setText(R.string.comments_loading)
+        binding.commentsStatus.isVisible = true
+        commentsJob?.cancel()
+        commentsJob = lifecycleScope.launch {
+            try {
+                val page = YtRepository.comments(url)
+                if (commentsFor != url) return@launch
+                commentsPage = page
+                bindCommentsPreview(page)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (commentsFor != url) return@launch
+                // The sheet retries on open, so a tap on the card still works.
+                binding.commentsStatus.setText(R.string.comments_error)
+                binding.commentsStatus.isVisible = true
+            }
+        }
+    }
+
+    private fun bindCommentsPreview(page: CommentsPage) {
+        binding.commentsCount.text =
+            if (page.total > 0) Formatters.formatViewCount(page.total.toLong()) else ""
+        when {
+            page.disabled -> {
+                binding.commentsPreviewRow.isVisible = false
+                binding.commentsStatus.setText(R.string.comments_disabled)
+                binding.commentsStatus.isVisible = true
+            }
+            page.items.isEmpty() -> {
+                binding.commentsPreviewRow.isVisible = false
+                binding.commentsStatus.setText(R.string.comments_empty)
+                binding.commentsStatus.isVisible = true
+            }
+            else -> {
+                val top = page.items.first()
+                Thumbs.load(binding.commentsPreviewAvatar, top.avatarUrl)
+                binding.commentsPreviewText.text = CommentAdapter.commentText(top).toString()
+                binding.commentsPreviewRow.isVisible = true
+                binding.commentsStatus.isVisible = false
+            }
+        }
+    }
+
+    private fun openComments() {
+        val url = PlaybackCenter.currentEntry?.url ?: return
+        CommentsSheet(
+            context = this,
+            scope = lifecycleScope,
+            videoUrl = url,
+            initial = commentsPage,
+            onLoaded = { loaded ->
+                if (commentsFor == url) {
+                    commentsPage = loaded
+                    bindCommentsPreview(loaded)
+                }
+            }
+        ).show()
     }
 
     private fun loadChannelInfo() {
@@ -1161,6 +1346,7 @@ class PlayerActivity : AppCompatActivity() {
         private const val EXTRA_DURATION = "extra_duration"
         private const val EXTRA_ATTACH = "extra_attach"
         private const val SWIPE_MIN_DISTANCE = 130f
+        private const val DESC_COLLAPSED_LINES = 3
 
         fun start(context: Context, model: com.sparktube.app.ui.common.VideoUiModel) {
             val intent = Intent(context, PlayerActivity::class.java).apply {

@@ -1,26 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Mirrors item_music_card.xml: 128dp square art + title/subtitle lines.
+<!-- Mirrors item_music_card.xml: 150dp square art + title/subtitle lines.
      Used for the skeleton state of the Music tab's trending shelf. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    android:layout_marginEnd="12dp"
+    android:layout_marginEnd="14dp"
     android:gravity="center_horizontal"
     android:orientation="vertical">
 
     <View
-        android:layout_width="128dp"
-        android:layout_height="128dp"
+        android:layout_width="150dp"
+        android:layout_height="150dp"
         android:background="@drawable/bg_skeleton_thumb" />
 
     <View
-        android:layout_width="110dp"
+        android:layout_width="128dp"
         android:layout_height="13dp"
         android:layout_marginTop="8dp"
         android:background="@drawable/bg_skeleton" />
 
     <View
-        android:layout_width="70dp"
+        android:layout_width="84dp"
         android:layout_height="11dp"
         android:layout_marginTop="5dp"
         android:background="@drawable/bg_skeleton" />

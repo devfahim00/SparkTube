@@ -21,14 +21,17 @@ import com.sparktube.app.download.DownloadCenter
 import com.sparktube.app.playback.PlaybackCenter
 import com.sparktube.app.playback.QueueEntry
 import com.sparktube.app.ui.player.DownloadSheet
+import com.sparktube.app.util.AppPrefs
 import com.sparktube.app.util.Themes
 import com.sparktube.app.util.Thumbs
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 /**
- * Spotify-style music screen: big artwork, seek bar with elapsed and total
- * time, play/pause/next/previous, favorite, start radio and download.
+ * Modern music player: large rounded artwork that breathes with play/pause,
+ * title + artist with a heart, seek bar, big transport controls, radio and
+ * download, plus an "Up next" card / queue button that opens the full queue
+ * — so when a radio is running the user can pick any song from it.
  * Playback itself runs in the shared background player so music keeps
  * playing (with notification controls) even when the app is closed.
  */
@@ -47,6 +50,9 @@ class NowPlayingActivity : AppCompatActivity() {
         }
 
         override fun onFavoriteChanged(url: String, isFavorite: Boolean) = bindFavorite()
+
+        // Radio keeps adding songs while it plays: keep "Up next" current.
+        override fun onQueueChanged() = bindUpNext()
     }
 
     private val progressRunnable = object : Runnable {
@@ -86,6 +92,20 @@ class NowPlayingActivity : AppCompatActivity() {
         }
         binding.radioButton.setOnClickListener { restartRadio() }
         binding.downloadButton.setOnClickListener { onDownloadClicked() }
+        binding.queueButton.setOnClickListener { showQueue() }
+        binding.upNextCard.setOnClickListener { showQueue() }
+
+        // The artwork is always a square that fits the space the controls
+        // leave over (small phones / landscape included).
+        binding.artContainer.addOnLayoutChangeListener { _, l, t, r, b, _, _, _, _ ->
+            val size = minOf(r - l, b - t).coerceAtLeast(0)
+            val lp = binding.art.layoutParams
+            if (size > 0 && (lp.width != size || lp.height != size)) {
+                lp.width = size
+                lp.height = size
+                binding.art.layoutParams = lp
+            }
+        }
 
         binding.seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
@@ -133,6 +153,7 @@ class NowPlayingActivity : AppCompatActivity() {
         binding.playingLabel.isVisible = true
         bindPlayButton()
         bindFavorite()
+        bindUpNext()
         updateProgress()
         updateDownloadState()
     }
@@ -145,6 +166,47 @@ class NowPlayingActivity : AppCompatActivity() {
         binding.playPauseButton.contentDescription = getString(
             if (isPlaying) R.string.cd_pause else R.string.cd_play
         )
+        // Artwork "breathes": full size while playing, slightly smaller paused.
+        val scale = if (isPlaying) 1f else 0.88f
+        if (AppPrefs.animations) {
+            binding.art.animate().scaleX(scale).scaleY(scale).setDuration(260).start()
+        } else {
+            binding.art.animate().cancel()
+            binding.art.scaleX = scale
+            binding.art.scaleY = scale
+        }
+    }
+
+    /** "Up next" card + queue button; also flags a radio session in the header. */
+    private fun bindUpNext() {
+        if (isFinishing) return
+        val queue = PlaybackCenter.queue
+        val radio = PlaybackCenter.radioMode
+        val next = queue.getOrNull(PlaybackCenter.queueIndex + 1)
+
+        binding.playingLabel.setText(
+            if (radio) R.string.playing_from_radio else R.string.now_playing
+        )
+        binding.queueButton.visibility =
+            if (queue.size > 1 || radio) android.view.View.VISIBLE else android.view.View.INVISIBLE
+
+        if (next != null) {
+            binding.upNextCard.isVisible = true
+            binding.upNextLabel.setText(
+                if (radio) R.string.up_next_radio_label else R.string.up_next_label
+            )
+            binding.upNextTitle.text = next.title
+        } else {
+            // A radio that has not fetched its songs yet keeps the card as an
+            // entry point instead of the queue button vanishing.
+            binding.upNextCard.isVisible = radio
+            binding.upNextLabel.setText(R.string.up_next_radio_label)
+            binding.upNextTitle.setText(R.string.queue_loading)
+        }
+    }
+
+    private fun showQueue() {
+        QueueSheet(this).show()
     }
 
     private fun bindFavorite() {
@@ -195,6 +257,8 @@ class NowPlayingActivity : AppCompatActivity() {
         val entry = PlaybackCenter.currentEntry ?: return
         PlaybackCenter.playMusic(entry, radio = true)
         Toast.makeText(this, R.string.radio_started, Toast.LENGTH_SHORT).show()
+        // Straight into the radio's queue so any song can be picked.
+        showQueue()
     }
 
     // ----- Download state -----

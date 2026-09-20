@@ -63,6 +63,12 @@ class MusicListActivity : AppCompatActivity() {
         binding.list.adapter = adapter
 
         binding.backButton.setOnClickListener { finish() }
+        binding.playAllButton.setOnClickListener {
+            if (entries.isNotEmpty()) {
+                PlaybackCenter.playMusicQueue(entries, 0)
+                NowPlayingActivity.start(this)
+            }
+        }
     }
 
     override fun onResume() {
@@ -88,6 +94,8 @@ class MusicListActivity : AppCompatActivity() {
         }
         adapter.submitList(entries.map { it.toRowModel() })
         binding.emptyView.isVisible = entries.isEmpty()
+        binding.summaryRow.isVisible = entries.isNotEmpty()
+        binding.subtitle.text = getString(R.string.music_songs_fmt, entries.size)
     }
 
     private fun confirmDelete(record: com.sparktube.app.data.DownloadRecord) {

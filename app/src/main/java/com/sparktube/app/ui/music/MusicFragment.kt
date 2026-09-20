@@ -4,9 +4,12 @@ import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.util.TypedValue
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewOutlineProvider
+import android.widget.FrameLayout
 import android.widget.GridLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -33,9 +36,10 @@ import kotlinx.coroutines.launch
 private data class Genre(val label: String, val query: String?, val top: Int, val bottom: Int)
 
 /**
- * Spotify-inspired music home: big trending shelf of square art cards,
- * colorful genre tiles and a popular-songs list. Tapping a song opens the
- * Now Playing screen and starts a radio of related tracks.
+ * Modern music home: time-of-day greeting, search field, quick access tiles
+ * (favorites / downloads), a trending shelf of rounded art cards, colorful
+ * genre tiles and a popular-songs list. Tapping a song opens the Now Playing
+ * screen and starts a radio of related tracks (its queue is one tap away).
  */
 class MusicFragment : Fragment() {
 
@@ -59,6 +63,8 @@ class MusicFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        binding.greeting.setText(greetingRes())
+
         binding.searchButton.setOnClickListener {
             startActivity(SearchActivity.intent(requireContext(), music = true))
         }
@@ -77,6 +83,16 @@ class MusicFragment : Fragment() {
         super.onResume()
         if (binding.shelfRow.childCount == 0) {
             load()
+        }
+    }
+
+    private fun greetingRes(): Int {
+        val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+        return when (hour) {
+            in 5..11 -> R.string.greeting_morning
+            in 12..16 -> R.string.greeting_afternoon
+            in 17..21 -> R.string.greeting_evening
+            else -> R.string.greeting_night
         }
     }
 
@@ -172,17 +188,47 @@ class MusicFragment : Fragment() {
         grid.removeAllViews()
         val margin = dp(6)
         GENRES.forEach { genre ->
-            val tile = TextView(requireContext()).apply {
-                text = genre.label
-                textSize = 16f
-                setTextColor(Color.WHITE)
-                setTypeface(null, android.graphics.Typeface.BOLD)
-                setPadding(dp(16), dp(28), dp(16), dp(28))
+            val ctx = requireContext()
+            val tile = FrameLayout(ctx).apply {
+                minimumHeight = dp(84)
                 background = GradientDrawable().apply {
                     orientation = GradientDrawable.Orientation.TL_BR
-                    cornerRadius = dp(14).toFloat()
+                    cornerRadius = dp(16).toFloat()
                     colors = intArrayOf(genre.top, genre.bottom)
                 }
+                // Clip the decorative note to the rounded corners.
+                clipToOutline = true
+                outlineProvider = ViewOutlineProvider.BACKGROUND
+                isClickable = true
+                isFocusable = true
+
+                // Big faded note peeking out of the corner.
+                addView(
+                    ImageView(ctx).apply {
+                        setImageResource(R.drawable.ic_music_note)
+                        setColorFilter(Color.WHITE)
+                        alpha = 0.22f
+                        rotation = 22f
+                        importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                    },
+                    FrameLayout.LayoutParams(dp(64), dp(64), Gravity.END or Gravity.BOTTOM).apply {
+                        marginEnd = -dp(8)
+                        bottomMargin = -dp(10)
+                    }
+                )
+                addView(
+                    TextView(ctx).apply {
+                        text = genre.label
+                        textSize = 16f
+                        setTextColor(Color.WHITE)
+                        setTypeface(null, android.graphics.Typeface.BOLD)
+                    },
+                    FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        Gravity.START or Gravity.TOP
+                    ).apply { setMargins(dp(14), dp(14), dp(14), dp(14)) }
+                )
                 setOnClickListener {
                     if (genre.query == null) {
                         // Trending chip: scroll back to the top shelf.

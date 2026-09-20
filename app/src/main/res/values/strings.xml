@@ -261,4 +261,41 @@
         <item quantity="one">%1$d video</item>
         <item quantity="other">%1$d videos</item>
     </plurals>
+
+    <!-- Watch page: description + comments -->
+    <string name="desc_show_more">Show more</string>
+    <string name="desc_show_less">Show less</string>
+    <string name="desc_empty">No description</string>
+    <string name="comments_title">Comments</string>
+    <string name="comments_count_fmt">%1$s comments</string>
+    <string name="comments_loading">Loading comments…</string>
+    <string name="comments_disabled">Comments are turned off for this video</string>
+    <string name="comments_empty">No comments yet</string>
+    <string name="comments_error">Couldn\'t load comments. Tap to retry.</string>
+    <string name="comments_pinned">Pinned</string>
+    <string name="comments_replies_fmt">%1$d replies</string>
+    <string name="comments_reply_one">1 reply</string>
+    <string name="cd_close">Close</string>
+
+    <!-- Music: modern home + queue -->
+    <string name="greeting_morning">Good morning</string>
+    <string name="greeting_afternoon">Good afternoon</string>
+    <string name="greeting_evening">Good evening</string>
+    <string name="greeting_night">Good night</string>
+    <string name="music_home_subtitle">What do you want to listen to?</string>
+    <string name="music_search_field">Search songs, artists…</string>
+    <string name="cd_play_song">Play</string>
+    <string name="queue_title">Up next</string>
+    <string name="queue_radio_badge">Radio</string>
+    <string name="queue_now_playing">Now playing</string>
+    <string name="queue_loading">Finding songs for your radio…</string>
+    <string name="queue_songs_fmt">%1$d songs in queue</string>
+    <string name="queue_empty">Nothing queued yet</string>
+    <string name="cd_queue">Queue</string>
+    <string name="up_next_label">Up next</string>
+    <string name="up_next_radio_label">Radio · Up next</string>
+    <string name="playing_from_radio">Playing from radio</string>
+    <string name="playing_from_queue">Playing from your queue</string>
+    <string name="music_play_all">Play all</string>
+    <string name="music_songs_fmt">%1$d songs</string>
 </resources>

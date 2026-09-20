@@ -16,11 +16,14 @@ import org.schabi.newpipe.extractor.channel.ChannelInfo
 import org.schabi.newpipe.extractor.channel.ChannelInfoItem
 import org.schabi.newpipe.extractor.channel.tabs.ChannelTabInfo
 import org.schabi.newpipe.extractor.channel.tabs.ChannelTabs
+import org.schabi.newpipe.extractor.comments.CommentsInfo
+import org.schabi.newpipe.extractor.comments.CommentsInfoItem
 import org.schabi.newpipe.extractor.kiosk.KioskInfo
 import org.schabi.newpipe.extractor.linkhandler.ListLinkHandler
 import org.schabi.newpipe.extractor.localization.ContentCountry
 import org.schabi.newpipe.extractor.search.SearchInfo
 import org.schabi.newpipe.extractor.services.youtube.linkHandler.YoutubeSearchQueryHandlerFactory
+import org.schabi.newpipe.extractor.stream.Description
 import org.schabi.newpipe.extractor.stream.StreamInfo
 import org.schabi.newpipe.extractor.stream.StreamInfoItem
 import java.io.IOException
@@ -41,6 +44,28 @@ data class ChannelUi(
     val avatarUrl: String,
     val subscriberCount: Long,
     val description: String
+)
+
+/** One YouTube comment, already flattened for the comments sheet. */
+data class CommentUi(
+    val id: String,
+    val author: String,
+    val avatarUrl: String,
+    val text: String,
+    val textIsHtml: Boolean,
+    val likes: Long,
+    val date: String,
+    val pinned: Boolean,
+    val hearted: Boolean,
+    val replyCount: Int
+)
+
+/** One page of comments plus the cursor for the next one. */
+data class CommentsPage(
+    val items: List<CommentUi>,
+    val nextPage: Page?,
+    val total: Int,
+    val disabled: Boolean
 )
 
 /**
@@ -328,6 +353,46 @@ object YtRepository {
             val result = ChannelTabInfo.getMoreItems(service, tab, page)
             LiveFilter.sanitize(result.items) to result.nextPage
         }
+
+    /** First page of top comments for a video. */
+    suspend fun comments(url: String): CommentsPage =
+        withContext(Dispatchers.IO) {
+            val info = CommentsInfo.getInfo(service, url)
+            CommentsPage(
+                items = info.relatedItems.map { it.toCommentUi() },
+                nextPage = info.nextPage,
+                total = info.commentsCount,
+                disabled = info.isCommentsDisabled
+            )
+        }
+
+    /** Next page of comments (the cursor comes from the previous page). */
+    suspend fun commentsMore(url: String, page: Page): CommentsPage =
+        withContext(Dispatchers.IO) {
+            val result = CommentsInfo.getMoreItems(service, url, page)
+            CommentsPage(
+                items = result.items.map { it.toCommentUi() },
+                nextPage = result.nextPage,
+                total = -1,
+                disabled = false
+            )
+        }
+
+    private fun CommentsInfoItem.toCommentUi(): CommentUi {
+        val body = commentText
+        return CommentUi(
+            id = commentId.orEmpty(),
+            author = uploaderName.orEmpty(),
+            avatarUrl = uploaderAvatars.maxByOrNull { it.height }?.url.orEmpty(),
+            text = body?.content.orEmpty(),
+            textIsHtml = body?.type == Description.HTML,
+            likes = likeCount.toLong(),
+            date = com.sparktube.app.util.Formatters.formatRelativeTime(textualUploadDate),
+            pinned = isPinned,
+            hearted = isHeartedByUploader,
+            replyCount = replyCount.toInt()
+        )
+    }
 
     /** Related videos for a stream (used for the watch page + radio autoplay). */
     suspend fun related(url: String): List<StreamInfoItem> =

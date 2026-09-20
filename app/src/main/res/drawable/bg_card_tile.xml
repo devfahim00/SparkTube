@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Rounded tile (music quick-access, up-next card). -->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="@color/action_pill_ripple">
+    <item>
+        <shape>
+            <solid android:color="?attr/elevatedBg" />
+            <corners android:radius="16dp" />
+        </shape>
+    </item>
+</ripple>
