@@ -118,6 +118,13 @@ class StreamCatalog(info: StreamInfo) {
         .distinctBy { it.effectiveHeight() }
         .sortedByDescending { it.effectiveHeight() }
 
+    /**
+     * Every video-only stream (all codecs / fps variants, not de-duplicated by
+     * height): the raw material for the adaptive DASH start ([DashSources]).
+     */
+    val allVideoOnly: List<VideoStream> = info.videoOnlyStreams
+        .filter { it.isUrl && it.effectiveHeight() > 0 }
+
     /** Progressive (muxed) streams, fallback only. */
     val muxed: List<VideoStream> = info.videoStreams
         .filter { it.isUrl && it.effectiveHeight() > 0 }
@@ -227,6 +234,17 @@ object PlaybackCenter {
      * whenever a new video starts resolving or the user picks a quality.
      */
     private var downshiftHeight: Int? = null
+
+    // ----- Adaptive (DASH) start -----
+
+    /** The source currently on the player is the adaptive one (see [DashSources]). */
+    private var dashActive = false
+
+    /** The adaptive start failed / was too slow for THIS video: use plain progressive. */
+    private var dashBlocked = false
+
+    /** When the current source was handed to the player (first-frame timing log). */
+    private var sourceAppliedAt = 0L
 
     /**
      * Watchdog: ms without a first frame before dropping one quality tier.
@@ -412,6 +430,13 @@ object PlaybackCenter {
 
         override fun onPlayerError(error: PlaybackException) {
             onPlayerFailed(error)
+        }
+
+        override fun onRenderedFirstFrame() {
+            if (mode != Mode.VIDEO || sourceAppliedAt == 0L) return
+            val ms = SystemClock.elapsedRealtime() - sourceAppliedAt
+            android.util.Log.i("SparkTubeStartup", "first frame after ${ms}ms (adaptive=$dashActive)")
+            sourceAppliedAt = 0L
         }
     }
 
@@ -813,6 +838,8 @@ object PlaybackCenter {
         // its quality drop applies to that video only.
         watchdogJob?.cancel()
         downshiftHeight = null
+        dashBlocked = false
+        dashActive = false
         // Drop the PREVIOUS video's catalog immediately: the watch page
         // listens to onItemChanged and re-binds from the entry alone, so the
         // action pills / subscribe / views of the old video must not linger
@@ -1028,6 +1055,14 @@ object PlaybackCenter {
             }
             return
         }
+        // The adaptive (DASH) session failed: retry the same video on the plain
+        // progressive path before any other fallback.
+        if (dashActive) {
+            dashBlocked = true
+            android.util.Log.w("SparkTubeStartup", "adaptive source failed: ${error.errorCodeName}")
+            rebuildSource(keepPosition = true)
+            return
+        }
         // The selected dubbing track failed to load: retry once with the
         // default audio before giving up on adaptive streams.
         if (selectedAudioTrackId != null && !usedFallback) {
@@ -1062,6 +1097,7 @@ object PlaybackCenter {
             notify { it.onError("No playable streams found") }
             return
         }
+        sourceAppliedAt = SystemClock.elapsedRealtime()
         player.run {
             setMediaSource(source, 0L)
             prepare()
@@ -1109,8 +1145,21 @@ object PlaybackCenter {
                         if (stallSince == 0L) stallSince = now
                         val startup = readyAt == 0L
                         val waited = now - if (startup) preparedAt else stallSince
-                        val limit = if (startup) STARTUP_LIMIT_MS else STALL_LIMIT_MS
+                        val limit = if (startup) STARTUP_LIMIT_MS
+                        else if (dashActive) STALL_LIMIT_MS * 3 else STALL_LIMIT_MS
                         if (waited >= limit) {
+                            if (dashActive) {
+                                // The adaptive start did not deliver either: fall
+                                // back to the plain stream (which the tier
+                                // downshifts below can then still tune).
+                                dashBlocked = true
+                                rebuildSource(keepPosition = !startup)
+                                preparedAt = SystemClock.elapsedRealtime()
+                                readyAt = 0L
+                                healthyMs = 0L
+                                stallSince = 0L
+                                continue
+                            }
                             // Floor reached / out of shifts: stop watching.
                             if (!downshiftOneTier(keepPosition = !startup)) return@launch
                             preparedAt = SystemClock.elapsedRealtime()
@@ -1161,6 +1210,7 @@ object PlaybackCenter {
         val position = if (keepPosition) positionMs else 0L
         val wasPlaying = playerRef?.isPlaying ?: true
         val source = buildSource(entry, c) ?: return
+        sourceAppliedAt = SystemClock.elapsedRealtime()
         player.run {
             setMediaSource(source, position)
             prepare()
@@ -1195,6 +1245,27 @@ object PlaybackCenter {
         // Video mode: prefer an adaptive video-only stream merged with audio
         // (that's how qualities above 360p are supported).
         val audio = audioForSelection(c)
+
+        // "Auto" / the settings default: start like the official player — an
+        // adaptive DASH session that begins with small segments at a quality the
+        // line can carry and adapts per segment. An explicit quality pick, a
+        // failed / slow adaptive start, or a manifest we cannot build all use the
+        // plain progressive path below, exactly as before.
+        if (adaptiveEligible()) {
+            val capHeight = if (autoPicked) 0 else AppPrefs.defaultVideoHeightNow(appContext)
+            val mediaItem = MediaItem.Builder()
+                .setUri(Uri.parse("https://sparktube.invalid/manifest.mpd"))
+                .setMediaMetadata(metadata)
+                .build()
+            val dash = DashSources.create(dataSourceFactory, mediaItem, c.allVideoOnly, audio, c.durationSec)
+            if (dash != null) {
+                applyVideoCap(capHeight)
+                dashActive = true
+                return dash
+            }
+        }
+        dashActive = false
+        applyVideoCap(0)
         val video = videoForSelection(c)
 
         if (video != null && video.isVideoOnly && audio != null) {
@@ -1212,6 +1283,19 @@ object PlaybackCenter {
             return progressiveSource(MediaItem.Builder().setUri(audioUri(audio)).setMediaMetadata(metadata).build())
         }
         return null
+    }
+
+    private fun adaptiveEligible(): Boolean =
+        AppPrefs.smartStreaming && !dashBlocked && !usedFallback &&
+            selectedHeight == null && downshiftHeight == null
+
+    /** Adaptive quality ceiling (0 = none). Cleared for fixed-quality progressive playback. */
+    private fun applyVideoCap(capHeight: Int) {
+        val p = playerRef ?: player
+        val builder = p.trackSelectionParameters.buildUpon()
+        if (capHeight > 0) builder.setMaxVideoSize(Int.MAX_VALUE, capHeight)
+        else builder.clearVideoSizeConstraints()
+        p.trackSelectionParameters = builder.build()
     }
 
     private fun videoForSelection(c: StreamCatalog): VideoStream? {

@@ -10,6 +10,7 @@ object AppPrefs {
     private const val KEY_THEME = "theme"
     private const val KEY_ACCENT = "accent"
     private const val KEY_VIDEO_AUTOPLAY_NEXT = "video_autoplay_next"
+    private const val KEY_SMART_STREAMING = "smart_streaming"
     private const val KEY_MUSIC_AUDIO_QUALITY = "music_audio_quality"
     private const val KEY_MUSIC_AUTOPLAY_NEXT = "music_autoplay_next"
     private const val KEY_ANIMATIONS = "animations"
@@ -107,6 +108,17 @@ object AppPrefs {
      */
     fun defaultVideoHeightNow(context: Context): Int =
         if (Net.isOnWifi(context)) defaultVideoHeightWifi else defaultVideoHeightData
+
+    /**
+     * Adaptive (DASH) start for "Auto" / default-quality playback: begins with small
+     * segments and adapts the quality like the official player. Turn off to always
+     * use the plain single-file stream.
+     */
+    var smartStreaming: Boolean
+        get() = sp.getBoolean(KEY_SMART_STREAMING, true)
+        set(value) {
+            sp.edit().putBoolean(KEY_SMART_STREAMING, value).apply()
+        }
 
     var videoAutoplayNext: Boolean
         get() = sp.getBoolean(KEY_VIDEO_AUTOPLAY_NEXT, true)

@@ -421,6 +421,15 @@ class SettingsPageActivity : AppCompatActivity() {
         )
         content.addView(
             menuRow(
+                getString(R.string.settings_smart_streaming),
+                if (AppPrefs.smartStreaming) getString(R.string.on) else getString(R.string.off)
+            ) {
+                AppPrefs.smartStreaming = !AppPrefs.smartStreaming
+                render()
+            }
+        )
+        content.addView(
+            menuRow(
                 getString(R.string.settings_autoplay_next_video),
                 if (AppPrefs.videoAutoplayNext) getString(R.string.on) else getString(R.string.off)
             ) {

@@ -173,6 +173,7 @@
     <string name="settings_default_quality_wifi">Default video quality (Wi-Fi)</string>
     <string name="settings_default_quality_data">Default video quality (mobile data)</string>
     <string name="settings_autoplay_next_video">Autoplay next video</string>
+    <string name="settings_smart_streaming">Smart streaming (instant start, adaptive quality)</string>
     <string name="menu_music_settings">Music settings</string>
     <string name="settings_audio_quality">Audio quality</string>
     <string name="quality_high">High (best bitrate)</string>
