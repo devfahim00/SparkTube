@@ -1,8 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Light theme (default): soft off-white gradient with a faint music-green
+     tint at the top, fading into the app's normal light background. Keeps
+     the same "colored top, neutral bottom" shape as the dark variant
+     (see drawable-night/bg_nowplaying_bg.xml) so the screen reads
+     consistently in both themes. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android">
     <gradient
         android:angle="270"
-        android:startColor="#283E33"
-        android:centerColor="#16211C"
-        android:endColor="#0F0F12" />
+        android:startColor="#E3F3E9"
+        android:centerColor="#EEF1F0"
+        android:endColor="#F5F5F7" />
 </shape>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dark theme: original deep green-to-black gradient. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <gradient
+        android:angle="270"
+        android:startColor="#283E33"
+        android:centerColor="#16211C"
+        android:endColor="#0F0F12" />
+</shape>

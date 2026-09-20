@@ -110,6 +110,11 @@
     <string name="start_radio">Start radio</string>
     <string name="radio_started">Radio started</string>
     <string name="now_playing">Now playing</string>
+    <string name="cd_back">Back</string>
+    <string name="cd_previous">Previous</string>
+    <string name="cd_next">Next</string>
+    <string name="cd_play">Play</string>
+    <string name="cd_pause">Pause</string>
 
     <!-- Channel -->
     <string name="channel_videos">Videos</string>

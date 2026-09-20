@@ -4,7 +4,6 @@ import android.graphics.drawable.ColorDrawable
 import android.widget.ImageView
 import androidx.core.content.ContextCompat
 import coil.load
-import coil.request.ImageRequest
 import com.sparktube.app.R
 
 /**
@@ -17,35 +16,41 @@ import com.sparktube.app.R
  */
 object Thumbs {
 
+    private fun placeholderDrawable(view: ImageView): ColorDrawable =
+        ColorDrawable(ContextCompat.getColor(view.context, R.color.thumbnail_placeholder))
+
     fun load(view: ImageView, url: String?) {
         val original = url.orEmpty()
-        if (original.isBlank()) return
+        if (original.isBlank()) {
+            // Recycled views (RecyclerView) must not keep showing whatever
+            // the previously bound item's image was — clear to the plain
+            // placeholder instead of silently leaving the stale bitmap.
+            view.setImageDrawable(placeholderDrawable(view))
+            return
+        }
         val upgraded = original.replace("/hqdefault.", "/hq720.")
         if (upgraded == original) {
             // Channel avatars and already-16:9 thumbs pass straight through.
             view.load(original) {
-                placeholder(placeholder(view))
-                error(placeholder(view))
+                placeholder(placeholderDrawable(view))
+                error(placeholderDrawable(view))
                 crossfade(true)
             }
             return
         }
         view.load(upgraded) {
-            placeholder(placeholder(view))
-            error(placeholder(view))
+            placeholder(placeholderDrawable(view))
+            error(placeholderDrawable(view))
             crossfade(true)
             listener(
                 onError = { _, _ ->
                     val fallback = original.replace("/hqdefault.", "/mqdefault.")
                     view.load(fallback) {
-                        placeholder(placeholder(view))
-                        error(placeholder(view))
+                        placeholder(placeholderDrawable(view))
+                        error(placeholderDrawable(view))
                     }
                 }
             )
         }
     }
-
-    private fun ImageRequest.Builder.placeholder(view: ImageView): ColorDrawable =
-        ColorDrawable(ContextCompat.getColor(view.context, R.color.thumbnail_placeholder))
 }

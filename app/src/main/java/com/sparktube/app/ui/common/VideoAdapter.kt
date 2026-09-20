@@ -36,8 +36,7 @@ class VideoAdapter(
         val b = holder.binding
 
         b.title.text = item.title
-        b.uploader.text = item.uploader
-        val metaParts = listOf(item.viewsLabel, item.uploadDate).filter { it.isNotBlank() }
+        val metaParts = listOf(item.uploader, item.viewsLabel, item.uploadDate).filter { it.isNotBlank() }
         b.meta.text = metaParts.joinToString(" • ")
 
         if (item.durationLabel.isEmpty()) {
@@ -48,6 +47,7 @@ class VideoAdapter(
         }
 
         Thumbs.load(b.thumbnail, item.thumbnailUrl)
+        Thumbs.load(b.avatar, item.uploaderAvatarUrl)
 
         b.root.setOnClickListener { onClick(item) }
         b.root.setOnLongClickListener {

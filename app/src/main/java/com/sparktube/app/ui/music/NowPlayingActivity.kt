@@ -138,8 +138,12 @@ class NowPlayingActivity : AppCompatActivity() {
     }
 
     private fun bindPlayButton() {
+        val isPlaying = PlaybackCenter.isPlaying
         binding.playPauseButton.setImageResource(
-            if (PlaybackCenter.isPlaying) R.drawable.ic_pause else R.drawable.ic_play_arrow
+            if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play_arrow
+        )
+        binding.playPauseButton.contentDescription = getString(
+            if (isPlaying) R.string.cd_pause else R.string.cd_play
         )
     }
 

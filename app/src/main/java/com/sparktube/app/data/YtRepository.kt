@@ -52,6 +52,25 @@ object YtRepository {
     private val service: StreamingService get() = ServiceList.YouTube
 
     /**
+     * Short-lived cache for [streamInfo]: the watch page, related-fetch and
+     * playback resolve paths can all ask for the same URL within seconds of
+     * each other (e.g. opening a video re-resolves it right after the home
+     * feed's related fetch already did). A 3-minute TTL cuts that duplicate
+     * extraction work while staying well clear of googlevideo's signed
+     * playback URLs going stale (they're valid for hours, not minutes), so
+     * cached entries are never served after their underlying stream links
+     * could plausibly have expired.
+     */
+    private const val STREAM_INFO_CACHE_TTL_MS = 3 * 60 * 1000L
+    private const val STREAM_INFO_CACHE_MAX = 30
+    private data class CachedStreamInfo(val info: StreamInfo, val atMs: Long)
+    private val streamInfoCache =
+        object : LinkedHashMap<String, CachedStreamInfo>(16, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, CachedStreamInfo>?): Boolean =
+                size > STREAM_INFO_CACHE_MAX
+        }
+
+    /**
      * YouTube removed the classic global trending feed in 2025, but the
      * region-aware trending surfaces still exist. The home feed blends the
      * country-based trending kiosks (trailers, popular episodes, gaming) into
@@ -247,7 +266,17 @@ object YtRepository {
     /** Full stream details for playback. */
     suspend fun streamInfo(url: String): StreamInfo =
         withContext(Dispatchers.IO) {
-            StreamInfo.getInfo(service, url)
+            val now = System.currentTimeMillis()
+            synchronized(streamInfoCache) {
+                streamInfoCache[url]
+            }?.let { cached ->
+                if (now - cached.atMs < STREAM_INFO_CACHE_TTL_MS) return@withContext cached.info
+            }
+            val info = StreamInfo.getInfo(service, url)
+            synchronized(streamInfoCache) {
+                streamInfoCache[url] = CachedStreamInfo(info, now)
+            }
+            info
         }
 
     /** Search keyword suggestions shown while the user types. */

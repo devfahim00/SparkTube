@@ -58,6 +58,16 @@ import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 
+/**
+ * Thrown wherever a resolved stream turns out to be a live broadcast, which
+ * SparkTube intentionally never plays. Kept as its own type (rather than a
+ * magic "LIVE_CONTENT" string inside a generic exception) so callers can
+ * detect it with `is LiveContentException` instead of substring-matching an
+ * error message, which silently stops working if the message ever changes.
+ */
+class LiveContentException :
+    IOException("This is a live stream, which SparkTube doesn't support playing.")
+
 /** Best-effort height: itag height or parsed from the resolution string ("1080p60"). */
 fun VideoStream.effectiveHeight(): Int =
     if (height > 0) height else StreamCatalog.resolutionHeight(resolution)
@@ -159,6 +169,9 @@ object PlaybackCenter {
         fun onPlaybackStateChanged(isPlaying: Boolean) {}
         fun onQueueChanged() {}
         fun onError(message: String) {}
+
+        /** A resolved item turned out to be live content — see [LiveContentException]. */
+        fun onLiveContentBlocked() {}
         fun onFavoriteChanged(url: String, isFavorite: Boolean) {}
         fun onAudioOnlyChanged(audioOnly: Boolean) {}
 
@@ -508,7 +521,7 @@ object PlaybackCenter {
                 } else {
                     val info = YtRepository.streamInfo(first.url)
                     if (LiveFilter.isLive(info)) {
-                        throw IllegalArgumentException("LIVE_CONTENT")
+                        throw LiveContentException()
                     }
                     catalog = StreamCatalog(info)
                     LocalStore.addToMusicHistory(appContext, first.toVideoEntry())
@@ -522,7 +535,11 @@ object PlaybackCenter {
                     prefetchAhead()
                 }
             } catch (e: Exception) {
-                notify { it.onError(if (e.message.isNullOrBlank()) e.javaClass.simpleName else e.message!!) }
+                if (e is LiveContentException) {
+                    notify { it.onLiveContentBlocked() }
+                } else {
+                    notify { it.onError(if (e.message.isNullOrBlank()) e.javaClass.simpleName else e.message!!) }
+                }
             } finally {
                 setResolving(false)
             }
@@ -777,7 +794,7 @@ object PlaybackCenter {
                 }
                 val info = YtRepository.streamInfo(entry.url)
                 if (LiveFilter.isLive(info)) {
-                    throw IllegalArgumentException("LIVE_CONTENT")
+                    throw LiveContentException()
                 }
                 catalog = StreamCatalog(info)
                 usedFallback = false
@@ -795,7 +812,11 @@ object PlaybackCenter {
                 // In a playlist an unavailable / live item is skipped so the
                 // rest of the list still plays.
                 if (!skipBrokenPlaylistItem()) {
-                    notify { it.onError(if (e.message.isNullOrBlank()) e.javaClass.simpleName else e.message!!) }
+                    if (e is LiveContentException) {
+                        notify { it.onLiveContentBlocked() }
+                    } else {
+                        notify { it.onError(if (e.message.isNullOrBlank()) e.javaClass.simpleName else e.message!!) }
+                    }
                 }
             } finally {
                 setResolving(false)
@@ -836,7 +857,7 @@ object PlaybackCenter {
             try {
                 val info = YtRepository.streamInfo(entry.url)
                 if (LiveFilter.isLive(info)) {
-                    throw IllegalArgumentException("LIVE_CONTENT")
+                    throw LiveContentException()
                 }
                 catalog = StreamCatalog(info)
                 LocalStore.addToMusicHistory(appContext, entry.toVideoEntry())
@@ -850,7 +871,11 @@ object PlaybackCenter {
                     extendRadioFromRelated()
                 }
             } catch (e: Exception) {
-                notify { it.onError(if (e.message.isNullOrBlank()) e.javaClass.simpleName else e.message!!) }
+                if (e is LiveContentException) {
+                    notify { it.onLiveContentBlocked() }
+                } else {
+                    notify { it.onError(if (e.message.isNullOrBlank()) e.javaClass.simpleName else e.message!!) }
+                }
             } finally {
                 setResolving(false)
             }
@@ -896,6 +921,19 @@ object PlaybackCenter {
     }
 
     private fun onPlayerFailed(error: PlaybackException) {
+        // A live URL slipping through data-source resolution (sparktube://
+        // queue lookups run on the loader thread, not through the
+        // resolveCatalog()/playMusicQueue() try/catch above) surfaces here
+        // instead, wrapped as the PlaybackException's cause. Checked lazily
+        // (not returned early) so the existing skip-to-next-song / skip-
+        // broken-playlist-item behavior below still runs first, exactly as
+        // it did before live content had its own exception type.
+        val isLive = generateSequence(error as Throwable) { it.cause }
+            .any { it is LiveContentException }
+        fun notifyFailure() {
+            if (isLive) notify { it.onLiveContentBlocked() }
+            else notify { it.onError("Playback error: ${error.errorCodeName}") }
+        }
         // Music mode: skip a broken song so the radio keeps going.
         if (mode == Mode.AUDIO) {
             playerRef?.run {
@@ -904,12 +942,12 @@ object PlaybackCenter {
                     return
                 }
             }
-            notify { it.onError("Playback error: ${error.errorCodeName}") }
+            notifyFailure()
             return
         }
         val c = catalog ?: run {
             if (!skipBrokenPlaylistItem()) {
-                notify { it.onError("Playback error: ${error.errorCodeName}") }
+                notifyFailure()
             }
             return
         }
@@ -936,7 +974,7 @@ object PlaybackCenter {
             return
         }
         if (skipBrokenPlaylistItem()) return
-        notify { it.onError("Playback error: ${error.errorCodeName}") }
+        notifyFailure()
     }
 
     /** Builds and applies the media source for the current entry + selections (video mode). */
@@ -1231,7 +1269,7 @@ object PlaybackCenter {
         musicUriCache[entry.url]?.let { return it }
         val info = runBlocking { YtRepository.streamInfo(entry.url) }
         if (LiveFilter.isLive(info)) {
-            throw IOException("LIVE_CONTENT")
+            throw LiveContentException()
         }
         val audio = pickMusicAudio(StreamCatalog(info))
             ?: throw IOException("No audio stream found")

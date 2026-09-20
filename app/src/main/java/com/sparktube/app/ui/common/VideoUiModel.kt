@@ -17,7 +17,8 @@ data class VideoUiModel(
     val thumbnailUrl: String,
     val durationSec: Long,
     val viewCount: Long,
-    val uploadDate: String
+    val uploadDate: String,
+    val uploaderAvatarUrl: String = ""
 ) {
     val durationLabel: String get() = Formatters.formatDuration(durationSec)
     val viewsLabel: String get() = Formatters.formatViewsLabel(viewCount)
@@ -30,7 +31,8 @@ fun StreamInfoItem.toUiModel(): VideoUiModel = VideoUiModel(
     thumbnailUrl = thumbnails.maxByOrNull { it.height }?.url.orEmpty(),
     durationSec = duration,
     viewCount = viewCount,
-    uploadDate = Formatters.formatRelativeTime(textualUploadDate)
+    uploadDate = Formatters.formatRelativeTime(textualUploadDate),
+    uploaderAvatarUrl = uploaderAvatars.maxByOrNull { it.height }?.url.orEmpty()
 )
 
 fun StreamInfo.toUiModel(): VideoUiModel = VideoUiModel(
@@ -40,7 +42,8 @@ fun StreamInfo.toUiModel(): VideoUiModel = VideoUiModel(
     thumbnailUrl = thumbnails.maxByOrNull { it.height }?.url.orEmpty(),
     durationSec = duration,
     viewCount = viewCount,
-    uploadDate = ""
+    uploadDate = "",
+    uploaderAvatarUrl = uploaderAvatars.maxByOrNull { it.height }?.url.orEmpty()
 )
 
 fun VideoEntry.toUiModel(): VideoUiModel = VideoUiModel(

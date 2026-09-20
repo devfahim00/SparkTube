@@ -12,7 +12,7 @@
         android:layout_marginStart="8dp"
         android:layout_marginTop="12dp"
         android:background="?attr/selectableItemBackgroundBorderless"
-        android:contentDescription="@string/app_name"
+        android:contentDescription="@string/cd_back"
         android:rotation="270"
         android:src="@drawable/ic_chevron_right"
         app:layout_constraintStart_toStartOf="parent"
@@ -86,8 +86,8 @@
         android:layout_marginTop="24dp"
         android:layout_marginEnd="28dp"
         android:progressBackgroundTint="@color/outline"
-        android:progressTint="@color/white"
-        android:thumbTint="@color/white"
+        android:progressTint="@color/music_green"
+        android:thumbTint="@color/music_green"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/subtitle" />
@@ -136,7 +136,7 @@
             android:layout_width="52dp"
             android:layout_height="52dp"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/app_name"
+            android:contentDescription="@string/cd_previous"
             android:src="@drawable/ic_skip_previous"
             app:tint="@color/on_surface" />
 
@@ -147,7 +147,7 @@
             android:layout_marginStart="24dp"
             android:layout_marginEnd="24dp"
             android:background="@drawable/bg_play_circle"
-            android:contentDescription="@string/app_name"
+            android:contentDescription="@string/cd_play"
             android:src="@drawable/ic_play_arrow"
             app:tint="@color/white" />
 
@@ -156,7 +156,7 @@
             android:layout_width="52dp"
             android:layout_height="52dp"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/app_name"
+            android:contentDescription="@string/cd_next"
             android:src="@drawable/ic_skip_next"
             app:tint="@color/on_surface" />
     </LinearLayout>

@@ -94,13 +94,13 @@ class PlayerActivity : AppCompatActivity() {
         }
 
         override fun onError(message: String) {
-            if (message.contains("LIVE_CONTENT")) {
-                Toast.makeText(this@PlayerActivity, R.string.live_not_supported, Toast.LENGTH_SHORT).show()
-                finish()
-                return
-            }
             binding.errorText.text = message
             binding.errorView.isVisible = true
+        }
+
+        override fun onLiveContentBlocked() {
+            Toast.makeText(this@PlayerActivity, R.string.live_not_supported, Toast.LENGTH_SHORT).show()
+            finish()
         }
 
         override fun onFavoriteChanged(url: String, isFavorite: Boolean) = updateFavoriteUi()
