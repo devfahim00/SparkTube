@@ -121,7 +121,7 @@ class SearchActivity : AppCompatActivity() {
                 doSearch()
             },
             onDelete = { entry ->
-                LocalStore.removeSearch(this, entry)
+                LocalStore.removeSearch(this, entry, musicMode)
                 val text = binding.searchInput.text?.toString().orEmpty()
                 if (text.length < 2) {
                     showHistoryRows()
@@ -303,7 +303,7 @@ class SearchActivity : AppCompatActivity() {
 
     /** Empty input: show the saved search history (newest first). */
     private fun showHistoryRows() {
-        val searches = LocalStore.searches(this).take(15)
+        val searches = LocalStore.searches(this, musicMode).take(15)
         if (searches.isEmpty()) {
             suggestionAdapter.submitList(emptyList())
             binding.suggestionList.isVisible = false
@@ -316,7 +316,7 @@ class SearchActivity : AppCompatActivity() {
     /** Typing: matching saved searches on top, remote suggestions below. */
     private fun showMergedRows(text: String, suggestions: List<String>) {
         val lower = text.lowercase()
-        val historyMatches = LocalStore.searches(this)
+        val historyMatches = LocalStore.searches(this, musicMode)
             .filter { it.lowercase().contains(lower) }
             .take(5)
         val historyKeys = historyMatches.map { it.lowercase() }.toSet()
@@ -343,7 +343,7 @@ class SearchActivity : AppCompatActivity() {
         page = null
         items.clear()
         channelItems.clear()
-        RecommendEngine.logSearch(this, text)
+        RecommendEngine.logSearch(this, text, musicMode)
         binding.suggestionList.isVisible = false
         videoAdapter.submitList(emptyList())
         channelAdapter.submitList(emptyList())

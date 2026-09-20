@@ -58,6 +58,7 @@ object LocalStore {
     private const val KEY_DOWNLOADS = "downloads_json"
     private const val KEY_PLAYLISTS = "playlists_json"
     private const val KEY_SEARCHES = "searches_json"
+    private const val KEY_MUSIC_SEARCHES = "music_searches_json"
     private const val MAX_HISTORY = 200
     private const val MAX_FAVORITES = 500
     private const val MAX_SUBSCRIPTIONS = 200
@@ -116,33 +117,41 @@ object LocalStore {
     }
 
     // ----- Search history -----
+    //
+    // Video searches and music searches are kept in two separate lists so a
+    // song search never shows up in the video search screen (and vice versa).
+
+    private fun searchKey(music: Boolean) = if (music) KEY_MUSIC_SEARCHES else KEY_SEARCHES
 
     /** Recent search queries, newest first (case preserved, deduplicated). */
-    fun searches(context: Context): List<String> =
-        readSearches(prefs(context), KEY_SEARCHES)
+    fun searches(context: Context, music: Boolean = false): List<String> =
+        readSearches(prefs(context), searchKey(music))
 
-    fun addSearch(context: Context, query: String) {
+    fun addSearch(context: Context, query: String, music: Boolean = false) {
         val q = query.trim()
         if (q.isEmpty()) return
         val ctx = context.applicationContext
-        val list = readSearches(prefs(ctx), KEY_SEARCHES).toMutableList()
+        val key = searchKey(music)
+        val list = readSearches(prefs(ctx), key).toMutableList()
         list.removeAll { it.equals(q, ignoreCase = true) }
         list.add(0, q)
         while (list.size > MAX_SEARCHES) {
             list.removeAt(list.size - 1)
         }
-        prefs(ctx).edit().putString(KEY_SEARCHES, JSONArray(list).toString()).apply()
+        prefs(ctx).edit().putString(key, JSONArray(list).toString()).apply()
     }
 
-    fun removeSearch(context: Context, query: String) {
+    fun removeSearch(context: Context, query: String, music: Boolean = false) {
         val ctx = context.applicationContext
-        val list = readSearches(prefs(ctx), KEY_SEARCHES).toMutableList()
+        val key = searchKey(music)
+        val list = readSearches(prefs(ctx), key).toMutableList()
         list.removeAll { it == query }
-        prefs(ctx).edit().putString(KEY_SEARCHES, JSONArray(list).toString()).apply()
+        prefs(ctx).edit().putString(key, JSONArray(list).toString()).apply()
     }
 
+    /** Clears BOTH the video and the music search history. */
     fun clearSearches(context: Context) {
-        prefs(context).edit().remove(KEY_SEARCHES).apply()
+        prefs(context).edit().remove(KEY_SEARCHES).remove(KEY_MUSIC_SEARCHES).apply()
     }
 
     // ----- Favorites -----
@@ -188,7 +197,7 @@ object LocalStore {
     }
 
     fun clearSearchesOnly(context: Context) {
-        prefs(context).edit().remove(KEY_SEARCHES).apply()
+        prefs(context).edit().remove(KEY_SEARCHES).remove(KEY_MUSIC_SEARCHES).apply()
     }
 
     // ----- Subscriptions -----

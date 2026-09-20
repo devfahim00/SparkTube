@@ -53,12 +53,15 @@ object OkHttpDownloader : Downloader() {
             if (response.code == 429) {
                 throw ReCaptchaException("reCaptcha Challenge requested", request.url())
             }
+            val finalUrl = response.request.url.toString()
+            val text = response.body?.string() ?: ""
             return Response(
                 response.code,
                 response.message,
                 response.headers.toMultimap(),
-                response.body?.string() ?: "",
-                response.request.url.toString()
+                // Comment avatars: see CommentAvatarFix.
+                CommentAvatarFix.apply(finalUrl, text),
+                finalUrl
             )
         }
     }

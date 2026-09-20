@@ -29,7 +29,8 @@ object BackupManager {
         "music_history_json",
         "favorites_json",
         "subscriptions_json",
-        "searches_json"
+        "searches_json",
+        "music_searches_json"
     )
 
     suspend fun exportTo(context: Context, uri: Uri): Boolean = withContext(Dispatchers.IO) {
@@ -85,7 +86,8 @@ object BackupManager {
             mergeEntries(localSp, "music_history_json", root.optJSONObject("local")?.optString("music_history_json"))
             mergeEntries(localSp, "favorites_json", root.optJSONObject("local")?.optString("favorites_json"))
             mergeChannels(localSp, root.optJSONObject("local")?.optString("subscriptions_json"))
-            mergeSearches(localSp, root.optJSONObject("local")?.optString("searches_json"))
+            mergeSearches(localSp, "searches_json", root.optJSONObject("local")?.optString("searches_json"))
+            mergeSearches(localSp, "music_searches_json", root.optJSONObject("local")?.optString("music_searches_json"))
 
             // ---- recommendation play log: merge by url, keep the larger count ----
             root.optJSONObject("reco")?.optString("plays_json")?.takeIf { it.isNotBlank() }?.let { raw ->
@@ -177,11 +179,11 @@ object BackupManager {
         sp.edit().putString("subscriptions_json", merged.toString()).apply()
     }
 
-    private fun mergeSearches(sp: android.content.SharedPreferences, importedRaw: String?) {
+    private fun mergeSearches(sp: android.content.SharedPreferences, key: String, importedRaw: String?) {
         if (importedRaw.isNullOrBlank()) return
         val imported = runCatching { JSONArray(importedRaw) }.getOrNull() ?: return
         val current = runCatching {
-            JSONArray(sp.getString("searches_json", "[]"))
+            JSONArray(sp.getString(key, "[]"))
         }.getOrNull() ?: JSONArray()
         val seen = HashSet<String>()
         val merged = JSONArray()
@@ -196,6 +198,6 @@ object BackupManager {
         // Trim to the store's cap (newest first).
         val trimmed = JSONArray()
         for (i in 0 until minOf(merged.length(), 20)) trimmed.put(merged.get(i))
-        sp.edit().putString("searches_json", trimmed.toString()).apply()
+        sp.edit().putString(key, trimmed.toString()).apply()
     }
 }

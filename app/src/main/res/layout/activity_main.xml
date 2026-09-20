@@ -30,7 +30,10 @@
         android:paddingBottom="6dp"
         android:visibility="gone">
 
+        <!-- 16:9 while a video plays (so the picture fills the whole box),
+             square for music artwork; the width is switched in MainActivity. -->
         <FrameLayout
+            android:id="@+id/miniMedia"
             android:layout_width="52dp"
             android:layout_height="52dp">
 
@@ -48,7 +51,7 @@
                 android:layout_height="match_parent"
                 android:background="@android:color/black"
                 android:visibility="gone"
-                app:resize_mode="fit"
+                app:resize_mode="zoom"
                 app:surface_type="texture_view"
                 app:use_controller="false" />
         </FrameLayout>

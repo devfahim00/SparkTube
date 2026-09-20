@@ -84,10 +84,10 @@ object RecommendEngine {
      * stored by [LocalStore] as the user-facing search history; this only
      * bumps the profile generation so the home feed refreshes.
      */
-    fun logSearch(context: Context, query: String) {
+    fun logSearch(context: Context, query: String, music: Boolean = false) {
         val q = query.trim()
         if (q.isEmpty()) return
-        LocalStore.addSearch(context, q)
+        LocalStore.addSearch(context, q, music)
         bump(context)
     }
 

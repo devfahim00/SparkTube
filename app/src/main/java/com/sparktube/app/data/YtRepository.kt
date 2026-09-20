@@ -57,7 +57,11 @@ data class CommentUi(
     val date: String,
     val pinned: Boolean,
     val hearted: Boolean,
-    val replyCount: Int
+    val replyCount: Int,
+    /** Cursor for this comment's replies (null when it has none / cannot be fetched). */
+    val repliesPage: Page? = null,
+    /** True for an entry that is itself a reply to another comment. */
+    val isReply: Boolean = false
 )
 
 /** One page of comments plus the cursor for the next one. */
@@ -378,19 +382,43 @@ object YtRepository {
             )
         }
 
-    private fun CommentsInfoItem.toCommentUi(): CommentUi {
+    /**
+     * Replies of one comment (first page or a follow-up page — the cursor is
+     * the comment's own replies [Page] / the page returned before).
+     */
+    suspend fun commentReplies(videoUrl: String, page: Page): CommentsPage =
+        withContext(Dispatchers.IO) {
+            val result = CommentsInfo.getMoreItems(service, videoUrl, page)
+            CommentsPage(
+                items = result.items.map { it.toCommentUi(isReply = true) },
+                nextPage = result.nextPage,
+                total = -1,
+                disabled = false
+            )
+        }
+
+    private fun CommentsInfoItem.toCommentUi(isReply: Boolean = false): CommentUi {
         val body = commentText
+        // Some items report the avatar under several sizes (or with an unknown
+        // height): take the largest one that actually has a URL.
+        val avatar = uploaderAvatars
+            .filter { !it.url.isNullOrBlank() }
+            .maxByOrNull { it.height }
+            ?.url
+            .orEmpty()
         return CommentUi(
             id = commentId.orEmpty(),
             author = uploaderName.orEmpty(),
-            avatarUrl = uploaderAvatars.maxByOrNull { it.height }?.url.orEmpty(),
+            avatarUrl = avatar,
             text = body?.content.orEmpty(),
             textIsHtml = body?.type == Description.HTML,
             likes = likeCount.toLong(),
             date = com.sparktube.app.util.Formatters.formatRelativeTime(textualUploadDate),
             pinned = isPinned,
             hearted = isHeartedByUploader,
-            replyCount = replyCount.toInt()
+            replyCount = replyCount.toInt(),
+            repliesPage = if (isReply) null else replies,
+            isReply = isReply
         )
     }
 

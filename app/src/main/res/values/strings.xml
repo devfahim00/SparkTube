@@ -275,6 +275,12 @@
     <string name="comments_pinned">Pinned</string>
     <string name="comments_replies_fmt">%1$d replies</string>
     <string name="comments_reply_one">1 reply</string>
+    <string name="comments_view_replies_fmt">View %1$d replies</string>
+    <string name="comments_view_reply_one">View 1 reply</string>
+    <string name="comments_hide_replies">Hide replies</string>
+    <string name="comments_replies_loading">Loading replies…</string>
+    <string name="comments_more_replies">Show more replies</string>
+    <string name="comments_replies_error">Couldn\'t load replies. Try again.</string>
     <string name="cd_close">Close</string>
 
     <!-- Music: modern home + queue -->

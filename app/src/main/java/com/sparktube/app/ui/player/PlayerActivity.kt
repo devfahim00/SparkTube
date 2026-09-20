@@ -56,6 +56,8 @@ import com.sparktube.app.ui.common.toQueueEntry
 import com.sparktube.app.ui.common.toUiModel
 import com.sparktube.app.util.AppPrefs
 import com.sparktube.app.util.Formatters
+import com.sparktube.app.util.Avatars
+import com.sparktube.app.util.PanelTransitions
 import com.sparktube.app.util.Themes
 import com.sparktube.app.util.Thumbs
 import coil.load
@@ -136,6 +138,9 @@ class PlayerActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         Themes.apply(this)
         super.onCreate(savedInstanceState)
+
+        // Expands UP out of the mini player (and collapses back down).
+        PanelTransitions.install(this)
 
         // Edge-to-edge from the very first frame — THE punch-hole fix:
         // LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES alone only lets the
@@ -773,7 +778,7 @@ class PlayerActivity : AppCompatActivity() {
             }
             else -> {
                 val top = page.items.first()
-                Thumbs.load(binding.commentsPreviewAvatar, top.avatarUrl)
+                Avatars.load(binding.commentsPreviewAvatar, top.avatarUrl, top.author)
                 binding.commentsPreviewText.text = CommentAdapter.commentText(top).toString()
                 binding.commentsPreviewRow.isVisible = true
                 binding.commentsStatus.isVisible = false

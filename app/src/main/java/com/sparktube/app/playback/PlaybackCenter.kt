@@ -195,6 +195,13 @@ object PlaybackCenter {
     val listeners = mutableListOf<Listener>()
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+    // Radio sizing: first batch, refill threshold / batch, and the minimum
+    // number of upcoming songs before the artist-search top-up kicks in.
+    private const val RADIO_FIRST_BATCH = 30
+    private const val RADIO_BATCH = 20
+    private const val RADIO_REFILL_BELOW = 10
+    private const val RADIO_MIN_UPCOMING = 15
     private var playerRef: ExoPlayer? = null
     private var resolveJob: Job? = null
 
@@ -926,23 +933,61 @@ object PlaybackCenter {
         notify { it.onQueueChanged() }
     }
 
-    /** Grows the music playlist with related songs before it runs dry. */
+    /**
+     * Grows the music playlist with related songs before it runs dry, so a
+     * radio is effectively endless. YouTube's "related" list alone only holds
+     * a couple of dozen items (and shrinks after de-duplication), so when it
+     * cannot fill the queue a song search for the same artist tops it up.
+     */
     private fun extendRadioFromRelated() {
         val rel = catalog?.related ?: return
         val idx = playerRef?.currentMediaItemIndex ?: queueIndex
         val remaining = (queue.size - idx - 1).coerceAtLeast(0)
-        // Only extend when the upcoming part of the queue is nearly empty,
+        // Only extend when the upcoming part of the queue is running low,
         // otherwise the playlist would grow without bound.
-        if (remaining >= 4) return
+        if (remaining >= RADIO_REFILL_BELOW) return
         val known = queue.map { it.url }.toSet()
-        val additions = rel.filter { it.url !in known && !LiveFilter.isLive(it) }
-            .take(5)
+        val additions = rel.filter { it.url.isNotBlank() && it.url !in known && !LiveFilter.isLive(it) }
+            .take(RADIO_BATCH)
             .map { it.toQueueEntry(isMusic = true) }
+        appendRadioEntries(additions)
+        if (additions.size + remaining < RADIO_MIN_UPCOMING) {
+            topUpRadioFromSearch(currentEntry)
+        }
+    }
+
+    private fun appendRadioEntries(additions: List<QueueEntry>) {
         if (additions.isEmpty()) return
-        queue.addAll(additions)
-        val items = additions.map { musicMediaItem(it) }
-        playerRef?.addMediaItems(items)
+        val known = queue.map { it.url }.toHashSet()
+        val fresh = additions.filter { known.add(it.url) }
+        if (fresh.isEmpty()) return
+        queue.addAll(fresh)
+        playerRef?.addMediaItems(fresh.map { musicMediaItem(it) })
         notify { it.onQueueChanged() }
+    }
+
+    /** Fallback source for the radio: more songs by the same artist. */
+    private fun topUpRadioFromSearch(seed: QueueEntry?) {
+        seed ?: return
+        val query = seed.uploader.removeSuffix(" - Topic").ifBlank { seed.title }
+        if (query.isBlank()) return
+        scope.launch {
+            try {
+                val result = YtRepository.searchMusic(query, null)
+                // The radio may have been restarted / stopped meanwhile.
+                if (!radioMode || currentEntry?.url != seed.url) return@launch
+                val known = queue.map { it.url }.toSet()
+                val more = result.items
+                    .filter { it.url.isNotBlank() && it.url !in known && !LiveFilter.isLive(it) }
+                    .take(RADIO_BATCH)
+                    .map { it.toQueueEntry(isMusic = true) }
+                appendRadioEntries(more)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // Best-effort only: the related list keeps the radio going.
+            }
+        }
     }
 
     private fun advance() {
@@ -1236,7 +1281,7 @@ object PlaybackCenter {
         if (radioMode) {
             catalog?.related
                 ?.filter { it.url.isNotBlank() && it.url != first.url && !LiveFilter.isLive(it) }
-                ?.take(8)
+                ?.take(RADIO_FIRST_BATCH)
                 ?.forEach { rel ->
                     val qe = rel.toQueueEntry(isMusic = true)
                     if (queue.none { it.url == qe.url }) {
@@ -1255,6 +1300,10 @@ object PlaybackCenter {
             playWhenReady = true
             setPlaybackSpeed(playbackSpeed)
             applyMusicAutoplay()
+        }
+        // "Related" alone rarely fills a radio: top it up with the artist's songs.
+        if (radioMode && items.size < RADIO_MIN_UPCOMING) {
+            topUpRadioFromSearch(first)
         }
     }
 

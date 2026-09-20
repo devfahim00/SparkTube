@@ -3,6 +3,7 @@ package com.sparktube.app.ui.player
 import android.content.Context
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.core.view.isVisible
 import androidx.lifecycle.LifecycleCoroutineScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -15,6 +16,9 @@ import com.sparktube.app.data.CommentsPage
 import com.sparktube.app.data.YtRepository
 import com.sparktube.app.databinding.SheetCommentsBinding
 import com.sparktube.app.ui.common.CommentAdapter
+import com.sparktube.app.ui.common.CommentRow
+import com.sparktube.app.ui.common.RepliesState
+import com.sparktube.app.ui.common.key
 import com.sparktube.app.util.Formatters
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -36,8 +40,23 @@ class CommentsSheet(
 ) : BottomSheetDialog(context) {
 
     private val binding = SheetCommentsBinding.inflate(LayoutInflater.from(context))
-    private val adapter = CommentAdapter()
+    private val adapter = CommentAdapter(
+        onToggleReplies = { comment -> toggleReplies(comment) },
+        onMoreReplies = { parentKey -> loadMoreReplies(parentKey) }
+    )
     private val items = mutableListOf<CommentUi>()
+
+    /** Loaded / loading replies per top-level comment key. */
+    private class ReplyThread(
+        var state: RepliesState,
+        val replies: MutableList<CommentUi> = mutableListOf(),
+        var next: Page? = null,
+        var loadedFirst: Boolean = false,
+        var loadingMore: Boolean = false
+    )
+
+    private val threads = HashMap<String, ReplyThread>()
+    private val replyJobs = mutableListOf<Job>()
 
     private var nextPage: Page? = null
     private var total = -1
@@ -68,7 +87,11 @@ class CommentsSheet(
                 if (lm.findLastVisibleItemPosition() >= adapter.itemCount - 4) loadMore()
             }
         })
-        setOnDismissListener { job?.cancel() }
+        setOnDismissListener {
+            job?.cancel()
+            replyJobs.toList().forEach { it.cancel() }
+            replyJobs.clear()
+        }
         setOnShowListener { behavior.state = BottomSheetBehavior.STATE_EXPANDED }
 
         val first = initial
@@ -127,7 +150,8 @@ class CommentsSheet(
         }
         nextPage = page.nextPage
         if (page.total >= 0) total = page.total
-        adapter.submitList(items.toList())
+        if (replace) threads.clear()
+        submitRows()
 
         binding.countLabel.text = if (total > 0) {
             Formatters.formatViewCount(total.toLong())
@@ -139,6 +163,93 @@ class CommentsSheet(
             items.isEmpty() -> showStatus(R.string.comments_empty)
             else -> binding.status.isVisible = false
         }
+    }
+
+    /** Flattens comments + their expanded replies into the rows the adapter shows. */
+    private fun submitRows() {
+        val rows = ArrayList<CommentRow>(items.size + 8)
+        items.forEach { comment ->
+            val thread = threads[comment.key]
+            rows.add(CommentRow.Comment(comment, thread?.state ?: RepliesState.COLLAPSED))
+            if (thread != null && thread.state == RepliesState.EXPANDED) {
+                thread.replies.forEach { reply ->
+                    rows.add(CommentRow.Comment(reply, RepliesState.COLLAPSED))
+                }
+                if (thread.next != null) {
+                    rows.add(CommentRow.MoreReplies(comment.key, thread.loadingMore))
+                }
+            }
+        }
+        adapter.submitList(rows)
+    }
+
+    /** "View N replies" / "Hide replies" on a top-level comment. */
+    private fun toggleReplies(comment: CommentUi) {
+        val page = comment.repliesPage ?: return
+        val key = comment.key
+        val thread = threads[key]
+        when {
+            thread == null -> {
+                val created = ReplyThread(RepliesState.LOADING)
+                threads[key] = created
+                submitRows()
+                fetchReplies(key, created, page)
+            }
+            thread.state == RepliesState.LOADING -> Unit
+            thread.state == RepliesState.EXPANDED -> {
+                thread.state = RepliesState.COLLAPSED
+                submitRows()
+            }
+            thread.loadedFirst -> {
+                thread.state = RepliesState.EXPANDED
+                submitRows()
+            }
+            else -> {
+                thread.state = RepliesState.LOADING
+                submitRows()
+                fetchReplies(key, thread, page)
+            }
+        }
+    }
+
+    private fun loadMoreReplies(parentKey: String) {
+        val thread = threads[parentKey] ?: return
+        val page = thread.next ?: return
+        if (thread.loadingMore) return
+        thread.loadingMore = true
+        submitRows()
+        fetchReplies(parentKey, thread, page)
+    }
+
+    private fun fetchReplies(key: String, thread: ReplyThread, page: Page) {
+        val replyJob = scope.launch {
+            try {
+                val result = YtRepository.commentReplies(videoUrl, page)
+                val known = thread.replies.map { it.id }.filter { it.isNotBlank() }.toHashSet()
+                result.items.forEach { r ->
+                    if (r.id.isBlank() || known.add(r.id)) thread.replies.add(r)
+                }
+                thread.next = result.nextPage
+                thread.loadedFirst = true
+                thread.loadingMore = false
+                thread.state = RepliesState.EXPANDED
+                submitRows()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                thread.loadingMore = false
+                if (!thread.loadedFirst) {
+                    // Nothing loaded yet: drop the thread so a tap retries.
+                    threads.remove(key)
+                } else {
+                    thread.state = RepliesState.EXPANDED
+                }
+                submitRows()
+                Toast.makeText(context, R.string.comments_replies_error, Toast.LENGTH_SHORT).show()
+            }
+        }
+        replyJobs.add(replyJob)
+        replyJob.invokeOnCompletion { replyJobs.remove(replyJob) }
     }
 
     private fun showStatus(res: Int) {

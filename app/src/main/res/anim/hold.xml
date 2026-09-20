@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Keeps the page underneath perfectly still while a player page slides over it. -->
+<translate xmlns:android="http://schemas.android.com/apk/res/android"
+    android:duration="300"
+    android:fromYDelta="0%"
+    android:toYDelta="0%" />

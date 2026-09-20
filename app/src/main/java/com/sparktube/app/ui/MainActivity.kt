@@ -77,6 +77,14 @@ class MainActivity : AppCompatActivity() {
         binding.navLibrary.setOnClickListener { select(R.id.navLibrary) }
         binding.navMenu.setOnClickListener { select(R.id.navMenu) }
 
+        // Rounded corners for the live video / artwork box of the mini player.
+        binding.miniMedia.clipToOutline = true
+        binding.miniMedia.outlineProvider = object : android.view.ViewOutlineProvider() {
+            override fun getOutline(view: View, outline: android.graphics.Outline) {
+                outline.setRoundRect(0, 0, view.width, view.height, 12f * resources.displayMetrics.density)
+            }
+        }
+
         binding.miniPlayPause.setOnClickListener { PlaybackCenter.togglePlayPause() }
         binding.miniClose.setOnClickListener {
             PlaybackCenter.stopPlayback()
@@ -176,16 +184,28 @@ class MainActivity : AppCompatActivity() {
             return
         }
         if (PlaybackCenter.mode == PlaybackCenter.Mode.VIDEO && !PlaybackCenter.audioOnlyMode) {
-            // Live video surface in the mini player, like YouTube.
+            // Live video surface in the mini player, like YouTube: a 16:9
+            // box that the picture fills completely (no black bars).
+            setMiniMediaWidth(wide = true)
             binding.miniThumb.isVisible = false
             binding.miniVideo.isVisible = true
             PlaybackCenter.attachView(binding.miniVideo)
         } else {
             PlaybackCenter.detachView(binding.miniVideo)
+            setMiniMediaWidth(wide = false)
             binding.miniVideo.isVisible = false
             binding.miniThumb.isVisible = true
         }
         updateMiniPlayer()
+    }
+
+    private fun setMiniMediaWidth(wide: Boolean) {
+        val width = ((if (wide) 92 else 52) * resources.displayMetrics.density).toInt()
+        val lp = binding.miniMedia.layoutParams
+        if (lp.width != width) {
+            lp.width = width
+            binding.miniMedia.layoutParams = lp
+        }
     }
 
     private fun updateMiniPlayer() {

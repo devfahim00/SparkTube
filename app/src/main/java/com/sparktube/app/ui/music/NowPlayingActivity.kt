@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.MotionEvent
 import android.widget.SeekBar
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -22,6 +23,7 @@ import com.sparktube.app.playback.PlaybackCenter
 import com.sparktube.app.playback.QueueEntry
 import com.sparktube.app.ui.player.DownloadSheet
 import com.sparktube.app.util.AppPrefs
+import com.sparktube.app.util.PanelTransitions
 import com.sparktube.app.util.Themes
 import com.sparktube.app.util.Thumbs
 import java.util.Locale
@@ -66,6 +68,8 @@ class NowPlayingActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         Themes.apply(this)
         super.onCreate(savedInstanceState)
+        // Expands UP out of the mini player (and collapses back down).
+        PanelTransitions.install(this)
         binding = ActivityNowPlayingBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
@@ -125,6 +129,56 @@ class NowPlayingActivity : AppCompatActivity() {
         })
 
         bind()
+    }
+
+    // ----- Swipe down to collapse into the mini player -----
+
+    private var swipeDownX = 0f
+    private var swipeDownY = 0f
+    private var swipeTracking = false
+
+    /**
+     * A downward swipe anywhere on the page (except on the seek bar, which
+     * owns its own drags) collapses the player into the mini player, sliding
+     * DOWN — the mirror of how it opened.
+     */
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        when (ev.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                swipeDownX = ev.rawX
+                swipeDownY = ev.rawY
+                swipeTracking = !isOnSeekBar(ev)
+            }
+            MotionEvent.ACTION_MOVE -> if (swipeTracking) {
+                val dy = ev.rawY - swipeDownY
+                val dx = kotlin.math.abs(ev.rawX - swipeDownX)
+                if (dy > SWIPE_MIN_DISTANCE_PX && dy > dx * 1.5f) {
+                    swipeTracking = false
+                    // Let the touched child (button / card) drop its pressed state.
+                    val cancel = MotionEvent.obtain(ev).apply { action = MotionEvent.ACTION_CANCEL }
+                    super.dispatchTouchEvent(cancel)
+                    cancel.recycle()
+                    finish()
+                    return true
+                }
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> swipeTracking = false
+        }
+        return super.dispatchTouchEvent(ev)
+    }
+
+    private fun isOnSeekBar(ev: MotionEvent): Boolean {
+        val rect = android.graphics.Rect()
+        if (!binding.seekBar.getGlobalVisibleRect(rect)) return false
+        // A little slack: the thumb is easy to miss by a finger's width.
+        val slack = (16 * resources.displayMetrics.density).toInt()
+        rect.inset(-slack, -slack)
+        return rect.contains(ev.rawX.toInt(), ev.rawY.toInt())
+    }
+
+    override fun finish() {
+        super.finish()
+        PanelTransitions.applyClose(this)
     }
 
     override fun onStart() {
@@ -326,6 +380,7 @@ class NowPlayingActivity : AppCompatActivity() {
 
     companion object {
         private const val REQ_NOTIFICATIONS = 4712
+        private const val SWIPE_MIN_DISTANCE_PX = 260f
 
         fun start(context: Context) {
             context.startActivity(Intent(context, NowPlayingActivity::class.java))
