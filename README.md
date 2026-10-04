@@ -10,6 +10,7 @@ No Google account. No API keys. No tracking. No live streams.
 
 [![Total Downloads](https://img.shields.io/github/downloads/devfahim00/SparkTube/total?style=for-the-badge&logo=github&label=Total%20Downloads&color=success)](https://github.com/devfahim00/SparkTube/releases)
 [![Latest Release](https://img.shields.io/github/v/release/devfahim00/SparkTube?style=for-the-badge&logo=github&label=Latest%20Release&color=blue)](https://github.com/devfahim00/SparkTube/releases/latest)
+[![Visits Today / Total](https://hitscounter.dev/api/hit?url=https%3A%2F%2Fgithub.com%2Fdevfahim00%2FSparkTube&label=Visits%20Today%20%2F%20Total&icon=eye-fill&color=%23e11d48&style=for-the-badge&tz=Asia%2FDhaka)](https://github.com/devfahim00/SparkTube)
 
 <br>
 
