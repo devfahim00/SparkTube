@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.sparktube.app.playback.PlayerListenerBridgeTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-10-23T11:11:33" hostname="189b40cdbe97" time="0.037">
-  <properties/>
-  <testcase name="everyMedia3CallbackIsExplicitlyForwarded" classname="com.sparktube.app.playback.PlayerListenerBridgeTest" time="0.034"/>
-  <testcase name="firstFrameTracksAndSizeReachTheDelegate" classname="com.sparktube.app.playback.PlayerListenerBridgeTest" time="0.001"/>
-  <testcase name="reproducesOldKotlinDelegationBlackShutterBug" classname="com.sparktube.app.playback.PlayerListenerBridgeTest" time="0.001"/>
-  <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>
