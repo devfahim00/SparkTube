@@ -84,11 +84,20 @@ jobs:
               "SparkTube-${GITHUB_REF_NAME}.apk"; }
 
 
+      - name: Prepare release notes
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          if [ -f "release-notes/${GITHUB_REF_NAME}.md" ]; then
+            cp "release-notes/${GITHUB_REF_NAME}.md" RELEASE_BODY.md
+          else
+            echo "SparkTube ${GITHUB_REF_NAME}" > RELEASE_BODY.md
+          fi
+
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          generate_release_notes: true
+          body_path: RELEASE_BODY.md
           files: SparkTube-*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

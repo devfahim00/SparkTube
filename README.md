@@ -389,6 +389,10 @@ Distributed under the **GPLv3**. See the `LICENSE` file for more information.
 - [**Material Components**](https://m3.material.io/) — design system
 - [**Shields.io**](https://shields.io/) — README badges
 
+### 💖 Special Thanks
+
+- **Md. Rajjab Ali** — implemented everything in **v1.4.2** (player controls, seek gestures, downloads, sleep timer, PiP & notification fixes and more). Thank you! 🙌
+
 ---
 
 ## 📬 Contact
