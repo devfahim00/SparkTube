@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Media3 reads this again on size/minimal-mode changes. Override only
-         portrait; landscape continues using Media3's original 52dp resource. -->
-    <dimen name="exo_styled_progress_margin_bottom">0dp</dimen>
+         portrait; landscape continues using Media3's original 52dp resource.
+         The base value lives in the media3-ui library (merged at build time),
+         so lint can't see it from this module: suppress MissingDefaultResource. -->
+    <dimen name="exo_styled_progress_margin_bottom" tools:ignore="MissingDefaultResource">0dp</dimen>
 </resources>
